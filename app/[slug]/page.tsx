@@ -1,9 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { use, useState } from "react"
 import axios from "axios"
 
-export default function UploadPage({ params }: { params: { slug: string } }) {
+export default function UploadPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = use(params)
+
   const [file, setFile] = useState<File | null>(null)
   const [copies, setCopies] = useState(1)
   const [duplex, setDuplex] = useState(false)
@@ -27,7 +33,7 @@ export default function UploadPage({ params }: { params: { slug: string } }) {
       formData.append("copies", String(copies))
       formData.append("duplex", String(duplex))
       formData.append("pageRange", pageRange)
-      formData.append("kioskId", params.slug)
+      formData.append("kioskId", slug)
 
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/upload`,
@@ -60,7 +66,7 @@ export default function UploadPage({ params }: { params: { slug: string } }) {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-lg">
         <h1 className="text-xl font-bold mb-4 text-center">
-          Upload for kiosk: {params.slug}
+          Upload for kiosk: {slug}
         </h1>
 
         <input
