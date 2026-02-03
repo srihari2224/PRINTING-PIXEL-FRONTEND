@@ -1,0 +1,462 @@
+/* ═══════════════════════════════════════════
+   REVIEW PAGE - Clean Mobile-First Design
+   ═══════════════════════════════════════════ */
+
+.container {
+  min-height: 100vh;
+  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Header ─── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.backButton {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #000000;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.backButton:active {
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.headerTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #000000;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+}
+
+.headerSpacer {
+  width: 40px;
+}
+
+/* ─── Content ─── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem 1.5rem 6rem 1.5rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.content::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
+/* ─── Sections ─── */
+.section {
+  margin-bottom: 1.75rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.sectionTitle {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #666666;
+  margin: 0;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+}
+
+.editButton {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #4caf50;
+  cursor: pointer;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: all 0.2s;
+}
+
+.editButton:active {
+  color: #45a049;
+}
+
+/* ─── Files List ─── */
+.filesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fileCard {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.fileIcon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.fileInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.fileName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 0.25rem;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileDetails {
+  font-size: 0.85rem;
+  color: #666666;
+  margin-bottom: 0.5rem;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.fileOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #333333;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.filePrice {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #000000;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  flex-shrink: 0;
+}
+
+/* ─── Detail Cards ─── */
+.detailCard {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.phoneRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+}
+
+.phoneNumber {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #000000;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.editIcon {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.25rem;
+  color: #666666;
+  transition: all 0.2s;
+}
+
+.editIcon:active {
+  color: #000000;
+}
+
+.kioskRow {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.kioskIcon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+}
+
+.kioskInfo {
+  flex: 1;
+}
+
+.kioskName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 0.25rem;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: #e8f5e9;
+  border: 1px solid #4caf50;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #4caf50;
+  letter-spacing: 0.5px;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.kioskLocation {
+  font-size: 0.9rem;
+  color: #666666;
+  margin-bottom: 0.25rem;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.kioskHours {
+  font-size: 0.85rem;
+  color: #999999;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ─── Summary Card ─── */
+.summaryCard {
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.billHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.billHeader:active {
+  background: #f5f5f5;
+}
+
+.billHeader h3 {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #000000;
+  margin: 0;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.billDetails {
+  padding: 0 1.25rem 1rem 1.25rem;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.billRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #666666;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.billRow span:last-child {
+  font-weight: 600;
+  color: #000000;
+}
+
+.freeTag {
+  color: #4caf50 !important;
+  font-weight: 700 !important;
+}
+
+.grandTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem;
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #000000;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.grandTotal span:last-child {
+  font-size: 1.5rem;
+}
+
+/* ─── Footer ─── */
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+.footerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.footerInfo p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666666;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.footerInfo h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #000000;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.proceedButton {
+  background: #000000;
+  border: none;
+  border-radius: 8px;
+  padding: 0.875rem 1.75rem;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.proceedButton:active:not(:disabled) {
+  background: #333333;
+  transform: scale(0.98);
+}
+
+.proceedButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════
+   TABLET & DESKTOP (min-width: 768px)
+   ═══════════════════════════════════════════ */
+
+@media (min-width: 768px) {
+  .content {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 2rem 6rem 2rem;
+  }
+
+  .headerTitle {
+    font-size: 1.5rem;
+  }
+
+  .backButton:hover {
+    background: #f5f5f5;
+    border-radius: 8px;
+  }
+
+  .editButton:hover {
+    color: #45a049;
+  }
+
+  .editIcon:hover {
+    color: #000000;
+  }
+
+  .billHeader:hover {
+    background: #f5f5f5;
+  }
+
+  .proceedButton:hover:not(:disabled) {
+    background: #333333;
+  }
+
+  .footer {
+    padding: 1.5rem 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .content {
+    max-width: 700px;
+  }
+}
