@@ -6,6 +6,12 @@ import UploadPage from "./components/UploadPage"
 import ReviewPage from "./components/ReviewPage"
 import OTPPage from "./components/OTPPage"
 
+import { useParams } from "next/navigation"
+
+
+
+
+
 interface UploadResult {
   uploadId: string
   totalPages: number
@@ -17,7 +23,14 @@ interface UploadResult {
   kioskId?: string
 }
 
-export default function KioskPage({ params }: { params: { slug: string } }) {
+
+
+export default function KioskPage() {
+
+  const params = useParams()
+  const slug = params.slug as string
+
+  console.log("SLUG:", slug)
   const [introDone, setIntroDone] = useState(false)
 
   const [step, setStep] = useState<"upload" | "review" | "otp">("upload")
@@ -207,5 +220,7 @@ export default function KioskPage({ params }: { params: { slug: string } }) {
     )
   }
 
-  return <UploadPage slug={params.slug} onUploadComplete={handleUploadComplete} />
+  console.log("SLUG:", slug)
+return <UploadPage slug={slug} onUploadComplete={handleUploadComplete} />
+
 }
