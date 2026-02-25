@@ -214,8 +214,8 @@ body {
   padding: 0;
   max-width: 100%;
   margin: 0 auto;
-  padding-bottom: 10rem;
-  min-height: 100vh;
+  padding-top: 50px;
+
 }
 
 /* ─── FILES Header with Back Button ─── */
@@ -329,111 +329,236 @@ body {
 /* ─── PDF Section ─── */
 .pdfSection {
   margin-bottom: 2rem;
+  /* Ensure the container doesn't overflow horizontally on the page 
+     but allows inner content to scroll if needed (though we handle scroll on the list) */
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.scrollHintOverlay {
+  position: absolute;
+  top: 50%;
+  right: 1.5rem;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeOutHint 3s ease forwards 1s;
+  z-index: 20;
+  font-family: 'Manrope', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@keyframes fadeOutHint {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }
 
 .pdfList {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0 1.5rem;
+  flex-direction: row;
+  overflow-x: auto;
+  gap: 1rem;
+  padding: 0.5rem 1.5rem 1.5rem 1.5rem;
+  /* extra bottom padding for shadow/hover space */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* smooth scroll on iOS */
+  scrollbar-width: none;
+  /* hide scrollbar firefox */
+  scroll-snap-type: x mandatory;
+  padding-right: 20px;
+  /* Ensure last item is reachable */
+}
+
+/* Hide scrollbar for Chrome/Safari/Opera */
+.pdfList::-webkit-scrollbar {
+  display: none;
 }
 
 .pdfCard {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
+  position: relative;
+  flex-shrink: 0;
+  width: 220px;
+  /* Fixed width for card consistency */
+  height: 300px;
+  /* Fixed height */
+  border-radius: 24px;
+  /* Highly rounded corners per design */
+  overflow: hidden;
   background: #ffffff;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  scroll-snap-align: center;
 }
 
 .pdfCard:hover {
-  background: #f9f9f9;
-  border-color: #000000;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
-.pdfIcon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f5f5;
-  border-radius: 8px;
-  flex-shrink: 0;
-  color: #000000;
+/* ── Top Header Area (Image/Pattern) ── */
+.cardHeader {
+  height: 55%;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  background-image: url('/images/upload-bg-poster.png');
+  background-size: cover;
+  background-position: center;
+  position: relative;
 }
 
-.pdfInfo {
-  flex: 1;
-  min-width: 0;
+/* Optional: Radial pattern overlay if desired to match the screenshot "waves" */
+.cardHeader::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 24px 24px 0 0;
 }
 
-.pdfName {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #000000;
-  margin-bottom: 0.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: 'Manrope', sans-serif;
-}
-
-.pdfSize {
-  font-size: 0.85rem;
-  color: #666666;
-}
-
-.configureBtn {
-  padding: 0.6rem 1.2rem;
-  background: rgb(34, 34, 34);
-  border: none;
-  border-radius: 50px;
+/* Edit pill button */
+.editBtn {
+  position: absolute;
+  bottom: 20px;
+  right: 15px;
+  background: #000000;
   color: #ffffff;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  border: none;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
+  z-index: 2;
   font-family: 'Manrope', sans-serif;
   letter-spacing: 0.5px;
 }
 
-.configureBtn:hover {
-  background: #444444;
-  transform: scale(1.05);
+/* ── Overlapping Icon ── */
+.cardIconWrapper {
+  position: absolute;
+  top: 40%;
+  /* Adjust to sit on the boundary line */
+  left: 15px;
+  z-index: 5;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border: 1px solid #eee;
+}
+
+.pdfIconImg {
+  color: #d32f2f;
+  /* Red for PDF icon */
+}
+
+/* ── Bottom Content Area (Black) ── */
+.cardFooter {
+  flex: 1;
+  background: #000000;
+  padding: 3rem 1rem 1rem 1rem;
+  /* Top padding clears the icon */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+  color: #ffffff;
+}
+
+.pdfName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+  font-family: 'Manrope', sans-serif;
+  line-height: 1.3;
+
+  /* Multiline truncation */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pdfAuthor {
+  font-size: 0.75rem;
+  color: #888888;
+  margin-bottom: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdfMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #bbbbbb;
+  font-family: 'Manrope', sans-serif;
 }
 
 /* ─── Image Grid ─── */
-.imageGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-  padding: 0 1.5rem;
+/* ─── Image Stack (Fanned) ─── */
+/* ─── Image List (Horizontal Scroll) ─── */
+.imageList {
+  display: flex;
+  overflow-x: auto;
+
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+
+.imageList::-webkit-scrollbar {
+  display: none;
 }
 
 .imageCard {
-  aspect-ratio: 1;
-  border-radius: 12px;
-  overflow: hidden;
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+  border-radius: 20px;
   background: #ffffff;
-  border: 2px solid #e0e0e0;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  border: 4px solid #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  scroll-snap-align: center;
 }
 
 .imageCard:hover {
-  transform: translateY(-4px);
-  border-color: #000000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+  border-color: #ffffff;
 }
 
 .imagePreview {
@@ -443,28 +568,20 @@ body {
 }
 
 .imageName {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 0.5rem;
-  font-size: 0.75rem;
-  color: #ffffff;
-  text-align: center;
-  font-family: 'Manrope', sans-serif;
+  display: none;
 }
 
+/* ─── Pill Button ─── */
 .arrangeImagesBtn {
-  width: calc(100% - 3rem);
-  margin: 0 1.5rem;
-  padding: 1rem;
-  background: rgb(34, 34, 34);
-  border: none;
+  margin: 0 auto 1.5rem auto;
+  /* Center button */
+  padding: 0.8rem 1.5rem;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
   border-radius: 50px;
-  color: #ffffff;
-  font-size: 1rem;
-  font-weight: 700;
+  color: #333333;
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -472,103 +589,347 @@ body {
   justify-content: center;
   gap: 0.5rem;
   font-family: 'Manrope', sans-serif;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
+  width: fit-content;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .arrangeImagesBtn:hover {
-  background: #444444;
-  transform: scale(1.02);
+  background: #f9f9f9;
+  border-color: #ccc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* ─── Queue Section ─── */
-.queueSection {
-  margin-top: 2rem;
+/* ─── Queue Section (Horizontal Scroll) ─── */
+/* ─── Queue Section (Split Layout) ─── */
+.queueContainer {
+  display: flex;
+  width: 100%;
+  gap: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  background: #f9f9f9;
+  overflow: hidden;
+  height: 130px;
+  /* Fixed height for the container to match card height */
   margin-bottom: 2rem;
 }
 
-.queueList {
+.queueItemsWrapper {
+  width: 70%;
+  padding: 1rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0 1.5rem;
+  align-items: center;
+  gap: 1rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-right: 1px solid #e0e0e0;
+  /* Separator */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
 
-.queueItem {
+.queueItemsWrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.checkoutWrapper {
+  width: 30%;
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  background: #e8f5e9;
-  border: 2px solid #4caf50;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  padding: 0.5rem;
+}
+
+/* ─── Checkout Card (Last Item) ─── */
+.checkoutCard {
+  width: 100%;
+  height: 100%;
+  /* Fill wrapper */
+  max-width: 90px;
+  /* Reduced max width for mobile feel */
+  max-height: 110px;
+  /* Reduced height */
   border-radius: 12px;
+  background: #000000;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.checkoutCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  border-color: #333;
+}
+
+.checkoutTotalLabel {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+  margin-bottom: 0.2rem;
+  font-weight: 600;
+}
+
+.checkoutTotalAmount {
+  font-size: 1rem;
+  font-weight: 300;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(45deg, #fff, #aaa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.checkoutArrow {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.3s ease;
 }
 
-.queueItem:hover {
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+.checkoutCard:hover .checkoutArrow {
+  background: #ffffff;
+  color: #000000;
+  transform: scale(1.1);
 }
 
-.queueIcon {
-  width: 40px;
-  height: 40px;
+.checkoutText {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+/* Base Queue Card */
+.queueCard {
+  width: 70px;
+  /* Further reduced size (~50%) */
+  height: 110px;
+  flex-shrink: 0;
+  position: relative;
+  scroll-snap-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.queueCard:hover {
+  transform: translateY(-5px);
+}
+
+/* ─── PDF Queue Card Specifics ─── */
+.pdfQueueCard {
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.pdfQueueCard .queueCardHeader {
+  height: 60%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  position: relative;
+  background-image: url('/images/upload-bg-poster.png');
+  background-size: cover;
+  background-position: center;
+  border-radius: 16px 16px 0 0;
+}
+
+.pdfBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+.pdfQueueCard .queueCardFooter {
+  height: 40%;
+  padding: 8px;
+  /* Reduced padding */
+  background: #ffffff;
+  border-radius: 0 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.queueTitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Manrope', sans-serif;
+}
+
+.queueSubtitle {
+  font-size: 9px;
+  color: #666;
+  font-weight: 500;
+}
+
+.queueDeleteBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #4caf50;
-  border-radius: 8px;
-  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  z-index: 10;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  background: white;
+  color: #d32f2f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.queueDeleteBtn:hover {
+  background: #d32f2f;
+  color: #fff;
+}
+
+
+/* ─── Image Queue Card Specifics ("Memories" Style) ─── */
+.imageQueueCard {
+  border-radius: 24px;
+  background: #000000;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
   color: #ffffff;
 }
 
-.queueInfo {
-  flex: 1;
-  min-width: 0;
-}
-
-.queueName {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #000000;
-  margin-bottom: 0.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: 'Manrope', sans-serif;
-}
-
-.queueDetails {
-  font-size: 0.85rem;
-  color: #555555;
-  margin-bottom: 0.5rem;
-  line-height: 1.4;
-}
-
-.queueCost {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #2e7d32;
-  font-family: 'Manrope', sans-serif;
-}
-
-.removeBtn {
-  width: 32px;
-  height: 32px;
+.imageQueueCard .queueCardHeader {
+  height: 65%;
+  padding: 20px;
+  background: #000000;
+  position: relative;
+  z-index: 2;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  color: #000000;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.removeBtn:hover {
-  background: #ffebee;
-  border-color: #ef5350;
-  color: #ef5350;
+.memoriesLabel {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #888;
+  font-weight: 500;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.memoriesTitle {
+  font-size: 32px;
+  font-weight: 300;
+  color: #ffffff;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  font-family: 'Manrope', sans-serif;
+}
+
+.memoriesDate {
+  font-size: 14px;
+  color: #999;
+  font-weight: 300;
+}
+
+.memoriesCollage {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Collage Images - Stacked/Tilted */
+.collageImg {
+  position: absolute;
+  width: 110px;
+  height: 140px;
+  border-radius: 8px;
+  border: 3px solid #ffffff;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  bottom: 20px;
+  right: 20px;
+  transition: transform 0.3s ease;
+}
+
+.collageImg:nth-child(1) {
+  /* Back */
+  transform: rotate(-15deg) translateX(-10px);
+  z-index: 1;
+  right: 60px;
+  bottom: 30px;
+}
+
+.collageImg:nth-child(2) {
+  /* Middle */
+  transform: rotate(-5deg) translateX(15px) translateY(10px);
+  z-index: 2;
+  right: 40px;
+  bottom: 25px;
+}
+
+.collageImg:nth-child(3) {
+  /* Front */
+  transform: rotate(8deg) translateX(40px) translateY(-5px);
+  z-index: 3;
+  right: 20px;
+  bottom: 20px;
+}
+
+.imageQueueCard:hover .collageImg:nth-child(1) {
+  transform: rotate(-20deg) translateX(-15px);
+}
+
+.imageQueueCard:hover .collageImg:nth-child(2) {
+  transform: rotate(0deg) translateX(15px) translateY(5px);
+}
+
+.imageQueueCard:hover .collageImg:nth-child(3) {
+  transform: rotate(12deg) translateX(45px) translateY(-10px);
+}
+
+.imageQueueCard .queueDeleteBtn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: none;
+}
+
+.imageQueueCard .queueDeleteBtn:hover {
+  background: #d32f2f;
+  color: #fff;
 }
 
 /* ═══════════════════════════════════════════
@@ -592,6 +953,7 @@ body {
   from {
     transform: translateY(100%);
   }
+
   to {
     transform: translateY(0);
   }
@@ -766,7 +1128,7 @@ body {
   accent-color: #000000;
 }
 
-.radioOption input[type="radio"]:checked + span {
+.radioOption input[type="radio"]:checked+span {
   font-weight: 600;
 }
 
@@ -1027,6 +1389,7 @@ body {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -1074,6 +1437,7 @@ body {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -1116,6 +1480,14 @@ body {
    ═══════════════════════════════════════════ */
 
 @media (max-width: 768px) {
+  .container {
+    background-image: url('/images/bb.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
   .servicesTitle {
     font-size: 2.8rem;
   }
@@ -1160,8 +1532,55 @@ body {
   }
 
   .pdfCard {
-    padding: 1rem;
-    gap: 0.75rem;
+    width: 120px;
+    height: 164px;
+    border-radius: 12px;
+  }
+
+  .cardHeader {
+    border-radius: 12px 12px 0 0;
+  }
+
+  .cardHeader::before {
+    border-radius: 12px 12px 0 0;
+  }
+
+  .cardIconWrapper {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    border-radius: 6px;
+    left: 8px;
+  }
+
+  .pdfIconImg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .editBtn {
+    font-size: 0.55rem;
+    padding: 0.15rem 0.4rem;
+    bottom: 12px;
+    right: 8px;
+  }
+
+  .cardFooter {
+    padding: 1.5rem 0.5rem 0.5rem 0.5rem;
+  }
+
+  .pdfName {
+    font-size: 0.65rem;
+  }
+
+  .pdfAuthor {
+    font-size: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .pdfMeta {
+    font-size: 0.5rem;
+    gap: 0.2rem;
   }
 
   .pdfIcon {
@@ -1288,13 +1707,46 @@ body {
     margin: 0 1.25rem;
   }
 
-  .imageGrid {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 0.75rem;
+  .imageStack {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 
-  .previewGrid {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  .imageCard {
+    width: 110px;
+    height: 110px;
+    border-width: 3px;
+    margin-right: 1rem;
+    /* Add spacing instead of overlap */
+  }
+
+  /* Reset margin for first item is no longer needed if we don't have negative margins, 
+     but maybe we want to target marquee items? 
+     The marquee uses gap: 1.5rem on desktop. 
+     We can rely on flex gap or margin. */
+
+  .marqueeTrack {
+    gap: 1rem;
+    /* Smaller gap on mobile */
+  }
+
+  .arrangeImagesBtn {
+    width: auto;
+    min-width: 180px;
+    margin: 0 auto;
+    padding: 0.7rem 1.2rem;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    color: #333;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    justify-content: center;
+  }
+
+  /* Override previous mobile styles that targeted imageGrid */
+  .imageGrid {
+    display: none;
   }
 
   .buttonGroup {
@@ -1313,5 +1765,28 @@ body {
   .sectionCount {
     padding: 0.35rem 0.75rem;
     font-size: 0.8rem;
+  }
+
+  /* Mobile Queue Fixes */
+  .queueList {
+    padding: 0 1rem;
+    gap: 0.5rem;
+  }
+
+  .queueCard {
+    width: 70px;
+    height: 110px;
+  }
+
+  .imageQueueCard .memoriesTitle {
+    font-size: 10px;
+  }
+
+  .checkoutCard {
+    width: 100%;
+    height: 100%;
+    max-width: 90px;
+    max-height: 110px;
+    padding: 0.5rem;
   }
 }

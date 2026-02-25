@@ -33,11 +33,11 @@ const LAYOUTS: Layout[] = [
     previewGrid: "1fr"
   },
   {
-    id: "2x1",
-    columns: 2,
-    rows: 1,
+    id: "1x2",
+    columns: 1,
+    rows: 2,
     imageCount: 2,
-    previewGrid: "1fr 1fr"
+    previewGrid: "1fr"
   },
   {
     id: "2x2",
@@ -55,10 +55,10 @@ const LAYOUTS: Layout[] = [
   }
 ]
 
-export default function ImagePrintSettings({ 
-  images, 
-  onClose, 
-  onAddToQueue 
+export default function ImagePrintSettings({
+  images,
+  onClose,
+  onAddToQueue
 }: ImagePrintSettingsProps) {
   const [selectedLayout, setSelectedLayout] = useState<Layout>(LAYOUTS[0])
   const [copies, setCopies] = useState(1)
@@ -112,13 +112,13 @@ export default function ImagePrintSettings({
     return new Promise((resolve, reject) => {
       const img = new Image()
       img.crossOrigin = 'anonymous'
-      
+
       img.onload = () => {
         const canvas = document.createElement('canvas')
         canvas.width = img.width
         canvas.height = img.height
         const ctx = canvas.getContext('2d')
-        
+
         if (!ctx) {
           reject(new Error('Canvas context not available'))
           return
@@ -129,20 +129,20 @@ export default function ImagePrintSettings({
         if (applyGrayscale) {
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
           const data = imageData.data
-          
+
           for (let i = 0; i < data.length; i += 4) {
             const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
             data[i] = gray
             data[i + 1] = gray
             data[i + 2] = gray
           }
-          
+
           ctx.putImageData(imageData, 0, 0)
         }
 
         resolve(canvas.toDataURL('image/jpeg', 0.92))
       }
-      
+
       img.onerror = () => reject(new Error('Failed to load image'))
       img.src = imageUrl
     })
@@ -154,7 +154,7 @@ export default function ImagePrintSettings({
       if (!jsPDFLib) {
         throw new Error('jsPDF library not loaded')
       }
-      
+
       const pdf = new jsPDFLib({
         orientation: 'portrait',
         unit: 'mm',
@@ -167,14 +167,14 @@ export default function ImagePrintSettings({
 
       const availableWidth = pageWidth - (2 * margin)
       const availableHeight = pageHeight - (2 * margin)
-      
+
       const cellWidth = availableWidth / selectedLayout.columns
       const cellHeight = availableHeight / selectedLayout.rows
 
       for (let i = 0; i < selectedImages.length; i++) {
         const row = Math.floor(i / selectedLayout.columns)
         const col = i % selectedLayout.columns
-        
+
         const x = margin + (col * cellWidth)
         const y = margin + (row * cellHeight)
 
@@ -218,19 +218,19 @@ export default function ImagePrintSettings({
 
     try {
       const pdfBlob = await generatePDF()
-      
+
       const pdfFile = new File(
-        [pdfBlob], 
+        [pdfBlob],
         `photo-print-${selectedLayout.id}-${Date.now()}.pdf`,
         { type: 'application/pdf' }
       )
 
       const printJob = {
         id: Date.now(),
-        type: 'pdf',
+        type: 'image-layout',
         file: pdfFile,
         fileName: pdfFile.name,
-        fileType: 'pdf',
+        fileType: 'pdf', // Still a PDF file physically
         totalPages: 1,
         printSettings: {
           copies: copies,
@@ -251,7 +251,7 @@ export default function ImagePrintSettings({
       onAddToQueue(printJob)
       setGenerating(false)
       onClose()
-      
+
     } catch (error) {
       console.error('Error in handleAddToQueue:', error)
       setGenerating(false)
@@ -275,7 +275,7 @@ export default function ImagePrintSettings({
         <div className={styles.mainGrid}>
           {/* Preview Area */}
           <div className={styles.previewArea}>
-            <div 
+            <div
               className={styles.previewGrid}
               style={{
                 gridTemplateColumns: selectedLayout.previewGrid,
@@ -287,12 +287,12 @@ export default function ImagePrintSettings({
                 <div key={index} className={styles.imageSlot}>
                   {selectedImages[index] ? (
                     <>
-                      <img 
-                        src={selectedImages[index].url} 
+                      <img
+                        src={selectedImages[index].url}
                         alt={`Image ${index + 1}`}
                         className={styles.slotImage}
                       />
-                      <button 
+                      <button
                         className={styles.removeBtn}
                         onClick={() => handleRemoveImage(index)}
                       >
@@ -317,7 +317,7 @@ export default function ImagePrintSettings({
                 className={`${styles.layoutBox} ${selectedLayout.id === layout.id ? styles.active : ''}`}
                 onClick={() => setSelectedLayout(layout)}
               >
-                <div 
+                <div
                   className={styles.layoutGrid}
                   style={{
                     gridTemplateColumns: layout.previewGrid,
@@ -340,8 +340,8 @@ export default function ImagePrintSettings({
             <h3 className={styles.sectionTitle}>Available Images ({images.length})</h3>
             <div className={styles.imageGrid}>
               {images.map((image, index) => (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className={styles.imageTile}
                   onClick={() => handleAddImage(image)}
                 >
@@ -361,9 +361,9 @@ export default function ImagePrintSettings({
               <h3 className={styles.sectionTitle}>Color Mode</h3>
               <div className={styles.radioButtons}>
                 <label className={`${styles.radio} ${colorMode === "color" ? styles.active : ""}`}>
-                  <input 
-                    type="radio" 
-                    name="colorMode" 
+                  <input
+                    type="radio"
+                    name="colorMode"
                     value="color"
                     checked={colorMode === "color"}
                     onChange={() => setColorMode("color")}
@@ -371,9 +371,9 @@ export default function ImagePrintSettings({
                   <span>Color</span>
                 </label>
                 <label className={`${styles.radio} ${colorMode === "bw" ? styles.active : ""}`}>
-                  <input 
-                    type="radio" 
-                    name="colorMode" 
+                  <input
+                    type="radio"
+                    name="colorMode"
                     value="bw"
                     checked={colorMode === "bw"}
                     onChange={() => setColorMode("bw")}
@@ -406,7 +406,7 @@ export default function ImagePrintSettings({
           <button className={styles.cancelBtn} onClick={onClose}>
             Cancel
           </button>
-          <button 
+          <button
             className={styles.addBtn}
             onClick={handleAddToQueue}
             disabled={selectedImages.length === 0 || generating || !jsPDFReady}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Dithering } from "@paper-design/shaders-react"
-import { X, FileText, Image as ImageIcon, ArrowLeft } from "lucide-react"
+import { X, FileText, Image as ImageIcon, ArrowLeft, ArrowRight, Hand } from "lucide-react"
 import ImagePrintSettings from "./ImagePrintSettings"
 import styles from "./UploadPage.module.css"
 
@@ -26,6 +26,7 @@ interface QueueItem {
   cost: number
   timestamp: string
   copies?: number
+  thumbnailUrl?: string
 }
 
 interface UploadPageProps {
@@ -60,6 +61,9 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     colorMode: "bw" as "color" | "bw",
   })
 
+  /* ── page counts state ── */
+  const [pageCounts, setPageCounts] = useState<{ [key: string]: number }>({})
+
   /* ── load PDF.js once ── */
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -82,8 +86,8 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
 
     setVerifying(true)
     setError("")
-    await new Promise((resolve) => setTimeout(resolve, 1500))
 
+    // Process PDFs for page counts immediately (but don't block UI too long)
     const pdfs = list.filter((f) => f.type.includes("pdf"))
     const images = list.filter((f) => f.type.startsWith("image/"))
 
@@ -93,6 +97,18 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
       return
     }
 
+    // Initialize counts for new PDFs
+    const newCounts: { [key: string]: number } = {}
+
+    // We can do this concurrently
+    await Promise.all(
+      pdfs.map(async (file) => {
+        const count = await getPDFPageCount(file)
+        newCounts[file.name] = count
+      })
+    )
+
+    setPageCounts((prev) => ({ ...prev, ...newCounts }))
     setFiles(pdfs)
     setImageFiles(images)
     setVerifying(false)
@@ -103,6 +119,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     setImageFiles([])
     setPrintQueue([])
     setError("")
+    setPageCounts({})
   }
 
   /* ── PDF helpers ── */
@@ -160,7 +177,8 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
 
   const handlePdfClick = async (file: File) => {
     setSelectedPdf(file)
-    const pageCount = await getPDFPageCount(file)
+    // Use stored count if available, else fetch
+    const pageCount = pageCounts[file.name] || await getPDFPageCount(file)
     setPdfPageCount(pageCount)
     setSettings({ copies: 1, pageRange: "all", customPages: "", doubleSided: "one-side", colorMode: "bw" })
     await loadPDFPreview(file)
@@ -206,6 +224,16 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
   const handleAddPdfToQueue = () => {
     if (!selectedPdf) return
     const pagesToPrint = settings.pageRange === "all" ? pdfPageCount : calculateCustomPages()
+
+    // Capture thumbnail from first page if available
+    let thumbnailUrl = ""
+    if (allPdfPages.length > 0) {
+      const firstPage = allPdfPages.find((p) => p.pageNumber === 1)
+      if (firstPage && firstPage.canvas) {
+        thumbnailUrl = firstPage.canvas.toDataURL()
+      }
+    }
+
     const queueItem: QueueItem = {
       id: Date.now(),
       file: selectedPdf,
@@ -217,6 +245,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
       pagesToPrint,
       cost: calculateCost(),
       timestamp: new Date().toLocaleTimeString(),
+      thumbnailUrl,
     }
     setPrintQueue((prev) => [...prev, queueItem])
     setShowPdfSettings(false)
@@ -238,7 +267,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     setError("")
     try {
       const formData = new FormData()
-      const pdfQueue = printQueue.filter((item) => item.type === "pdf")
+      const pdfQueue = printQueue.filter((item) => item.type === "pdf" || item.type === "image-layout")
       pdfQueue.forEach((item) => item.file && formData.append("files", item.file))
       formData.append("kioskId", slug)
       formData.append(
@@ -348,7 +377,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
         ) : (
           /* ─── ACTIVE STATE header with FILES design + Back button ─── */
           <>
-            <div className={styles.filesHeader}>
+            {/* <div className={styles.filesHeader}>
               <div className={styles.filesServicesOutlineText} aria-hidden="true">
                 FILES
               </div>
@@ -358,7 +387,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
               <button className={styles.backButton} onClick={handleBackToUpload}>
                 <ArrowLeft size={20} />
               </button>
-            </div>
+            </div> */}
           </>
         )}
 
@@ -372,19 +401,41 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
               </div>
               <div className={styles.sectionCount}>{files.length}</div>
             </div>
+
+            <div className={styles.scrollHintOverlay}>
+              <Hand size={16} /> Slide to view
+            </div>
+
+            {/* New Horizontal Card Layout */}
             <div className={styles.pdfList}>
               {files.map((file, index) => (
                 <div key={index} className={styles.pdfCard} onClick={() => handlePdfClick(file)}>
-                  <div className={styles.pdfIcon}>
-                    <FileText size={24} />
+
+                  {/* Top Header - Image/Pattern */}
+                  <div className={styles.cardHeader}>
+                    {/* Placeholder content or just gradient */}
+                    <button className={styles.editBtn}>Edit</button>
                   </div>
-                  <div className={styles.pdfInfo}>
-                    <div className={styles.pdfName}>
-                      {file.name.length > 25 ? `${file.name.substring(0, 25)}…` : file.name}
+
+                  {/* Overlapping Icon */}
+                  <div className={styles.cardIconWrapper}>
+                    <FileText size={24} className={styles.pdfIconImg} />
+                  </div>
+
+                  {/* Bottom Footer - Info */}
+                  <div className={styles.cardFooter}>
+                    <div>
+                      <div className={styles.pdfName}>{file.name}</div>
+                      <div className={styles.pdfAuthor}>@user • Uploaded</div>
                     </div>
-                    <div className={styles.pdfSize}>{(file.size / 1024).toFixed(1)} KB</div>
+                    <div className={styles.pdfMeta}>
+                      <span>{(file.size / 1024).toFixed(0)} KB</span>
+                      {pageCounts[file.name] !== undefined && (
+                        <span>{pageCounts[file.name]} Pages</span>
+                      )}
+                    </div>
                   </div>
-                  <button className={styles.configureBtn}>CONFIGURE</button>
+
                 </div>
               ))}
             </div>
@@ -401,24 +452,22 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
               </div>
               <div className={styles.sectionCount}>{imageFiles.length}</div>
             </div>
-            <div className={styles.imageGrid}>
+            {/* Horizontal Scroll List */}
+            <div className={styles.imageList}>
               {imageFiles.map((file, index) => (
                 <div key={index} className={styles.imageCard}>
                   <img src={URL.createObjectURL(file)} alt={file.name} className={styles.imagePreview} />
-                  <div className={styles.imageName}>
-                    {file.name.length > 15 ? `${file.name.substring(0, 15)}…` : file.name}
-                  </div>
                 </div>
               ))}
             </div>
             <button className={styles.arrangeImagesBtn} onClick={() => setShowImageSettings(true)}>
-              <span className={styles.uploadPlusIcon}>+</span>
-              <span>ARRANGE IMAGES</span>
+              <span>Arrange images</span>
+              <ArrowRight size={16} />
             </button>
           </div>
         )}
 
-        {/* ─── Print Queue ─── */}
+        {/* ─── Queue Section ─── */}
         {!showEmptyState && printQueue.length > 0 && (
           <div className={styles.queueSection}>
             <div className={styles.sectionHeader}>
@@ -427,239 +476,307 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
               </div>
               <div className={styles.sectionCount}>{printQueue.length}</div>
             </div>
-            <div className={styles.queueList}>
-              {printQueue.map((item) => (
-                <div key={item.id} className={styles.queueItem}>
-                  <div className={styles.queueIcon}>
-                    {item.type === "image-layout" ? <ImageIcon size={20} /> : <FileText size={20} />}
-                  </div>
-                  <div className={styles.queueInfo}>
-                    <div className={styles.queueName}>
-                      {item.type === "image-layout"
-                        ? `${item.layout?.name} – ${item.images?.length} images`
-                        : item.fileName.length > 22 ? `${item.fileName.substring(0, 22)}…` : item.fileName}
-                    </div>
-                    <div className={styles.queueDetails}>
-                      {item.type === "image-layout"
-                        ? `${item.copies} ${item.copies && item.copies > 1 ? "copies" : "copy"}`
-                        : `${item.printSettings?.copies} ${item.printSettings?.copies && item.printSettings.copies > 1 ? "copies" : "copy"} • ${item.printSettings?.pageRange} • ${item.printSettings?.colorMode === "color" ? "Color" : "B&W"} • ${item.printSettings?.doubleSided === "both-sides" ? "Duplex" : "Single"}`}
-                    </div>
-                    <div className={styles.queueCost}>₹{item.cost}</div>
-                  </div>
-                  <button className={styles.removeBtn} onClick={(e) => { e.stopPropagation(); removeFromQueue(item.id) }}>
-                    <X size={18} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* ─── error ─── */}
-        {!showEmptyState && error && <div className={styles.errorMessage}>{error}</div>}
+            <div className={styles.queueContainer}>
+              {/* Left Side: Scrollable Queue Items (70%) */}
+              <div className={styles.queueItemsWrapper}>
+                {printQueue.map((item, index) => {
+                  const isPdf = item.type === "pdf"
+                  // Helpers for Image Card
+                  const itemImages = imageFiles.filter((img) => img.name === item.fileName)
+                  const displayImages = itemImages.length > 0 ? itemImages : imageFiles.slice(0, 3)
+                  while (displayImages.length > 0 && displayImages.length < 3) {
+                    displayImages.push(displayImages[0])
+                  }
 
-        {/* ─── sticky footer ─── */}
-        {!showEmptyState && printQueue.length > 0 && (
-          <div className={styles.footer}>
-            <div className={styles.footerContent}>
-              <div className={styles.totalInfo}>
-                <p>Total Cost</p>
-                <h2>₹{calculateTotalCost()}</h2>
+                  return (
+                    <div
+                      key={index}
+                      className={`${styles.queueCard} ${isPdf ? styles.pdfQueueCard : styles.imageQueueCard}`}
+                    >
+                      {/* Delete Button (Common) */}
+                      <button
+                        className={styles.queueDeleteBtn}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeFromQueue(item.id)
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+
+                      {/* Header */}
+                      <div
+                        className={styles.queueCardHeader}
+                        style={
+                          isPdf && item.thumbnailUrl
+                            ? { backgroundImage: `url(${item.thumbnailUrl})` }
+                            : undefined
+                        }
+                      >
+                        {isPdf ? (
+                          // PDF Header Content
+                          <div
+                            className={styles.pdfBadge}
+                            style={item.thumbnailUrl ? { display: "none" } : undefined}
+                          >
+                            PDF
+                          </div>
+                        ) : (
+                          // Image Header Content
+                          <>
+                            <div className={styles.memoriesLabel}>MEMORIES</div>
+                            <div className={styles.memoriesTitle}>{item.fileName || "Photo Collection"}</div>
+                            <div className={styles.memoriesDate}>
+                              {new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Image Collage (Only for Images) */}
+                      {!isPdf && (
+                        <div className={styles.memoriesCollage}>
+                          {displayImages.slice(0, 3).map((img, i) => (
+                            <img key={i} src={URL.createObjectURL(img)} className={styles.collageImg} alt="" />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Footer (Only for PDFs to show info) */}
+                      {isPdf && item.printSettings && (
+                        <div className={styles.queueCardFooter}>
+                          <div className={styles.queueTitle}>{item.fileName}</div>
+                          <div className={styles.queueSubtitle}>
+                            {item.printSettings.copies} {item.printSettings.copies === 1 ? "Copy" : "Copies"} •{" "}
+                            {item.printSettings.colorMode === "color" ? "Color" : "B&W"}
+                          </div>
+                          <div className={styles.queueSubtitle} style={{ fontSize: "0.7rem", marginTop: "4px" }}>
+                            {item.printSettings.pageRange === "all"
+                              ? "All Pages"
+                              : `Pages: ${item.printSettings.customPages}`}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-              <button 
-                onClick={handleUpload} 
-                disabled={loading || printQueue.length === 0} 
-                className={styles.proceedButton}
-              >
-                {loading ? "UPLOADING..." : "PROCEED TO PAYMENT"}
-              </button>
+
+              {/* Right Side: Checkout Card (30%) */}
+              <div className={styles.checkoutWrapper}>
+                <div className={styles.checkoutCard} onClick={handleUpload}>
+                  <div className={styles.checkoutTotalLabel}>Total Pay</div>
+                  <div className={styles.checkoutTotalAmount}>₹{calculateTotalCost()}</div>
+
+                  <div className={styles.checkoutArrow}>
+                    <ArrowRight size={32} />
+                  </div>
+
+                  <div className={styles.checkoutText}>{loading ? "Processing..." : "Proceed to Payment"}</div>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </div>
 
+
+      {/* ─── error ─── */}
+      {!showEmptyState && error && <div className={styles.errorMessage}>{error}</div>}
+
+      {/* ─── sticky footer ─── */}
+
+
+
       {/* ═══ PDF Settings Modal - FULLSCREEN ═══ */}
-      {showPdfSettings && selectedPdf && (
-        <div className={styles.fullscreenModal}>
-          <div className={styles.fullscreenContent}>
-            {/* Header */}
-            <div className={styles.fullscreenHeader}>
-              <button className={styles.backBtn} onClick={() => setShowPdfSettings(false)}>
-                <X size={24} />
-              </button>
-              <h2>PDF SETTINGS</h2>
-              <div className={styles.headerSpacer} />
-            </div>
-
-            {/* Scrollable Content */}
-            <div className={styles.fullscreenBody}>
-              {/* File Info */}
-              <div className={styles.fileInfoCard}>
-                <div className={styles.fileInfoIcon}>
-                  <FileText size={28} />
-                </div>
-                <div className={styles.fileInfoText}>
-                  <h3>{selectedPdf.name.length > 30 ? `${selectedPdf.name.substring(0, 30)}...` : selectedPdf.name}</h3>
-                  <p>{pdfPageCount} pages • {(selectedPdf.size / 1024).toFixed(1)} KB</p>
-                </div>
+      {
+        showPdfSettings && selectedPdf && (
+          <div className={styles.fullscreenModal}>
+            <div className={styles.fullscreenContent}>
+              {/* Header */}
+              <div className={styles.fullscreenHeader}>
+                <button className={styles.backBtn} onClick={() => setShowPdfSettings(false)}>
+                  <X size={24} />
+                </button>
+                <h2>PDF SETTINGS</h2>
+                <div className={styles.headerSpacer} />
               </div>
 
-              {/* Settings */}
-              <div className={styles.settingsContainer}>
-                <div className={styles.settingGroup}>
-                  <label>COPIES</label>
-                  <input
-                    type="number" 
-                    min="1" 
-                    max="99" 
-                    value={settings.copies}
-                    onChange={(e) => setSettings({ ...settings, copies: Number.parseInt(e.target.value) || 1 })}
-                    className={styles.input}
-                  />
+              {/* Scrollable Content */}
+              <div className={styles.fullscreenBody}>
+                {/* File Info */}
+                <div className={styles.fileInfoCard}>
+                  <div className={styles.fileInfoIcon}>
+                    <FileText size={28} />
+                  </div>
+                  <div className={styles.fileInfoText}>
+                    <h3>{selectedPdf.name.length > 30 ? `${selectedPdf.name.substring(0, 30)}...` : selectedPdf.name}</h3>
+                    <p>{pdfPageCount} pages • {(selectedPdf.size / 1024).toFixed(1)} KB</p>
+                  </div>
                 </div>
 
-                <div className={styles.settingGroup}>
-                  <label>PAGES</label>
-                  <div className={styles.radioGroup}>
-                    <label className={styles.radioOption}>
-                      <input 
-                        type="radio" 
-                        name="pageRange" 
-                        value="all" 
-                        checked={settings.pageRange === "all"} 
-                        onChange={() => setSettings({ ...settings, pageRange: "all" })} 
-                      />
-                      <span>All Pages</span>
-                    </label>
-                    <label className={styles.radioOption}>
-                      <input 
-                        type="radio" 
-                        name="pageRange" 
-                        value="custom" 
-                        checked={settings.pageRange === "custom"} 
-                        onChange={() => setSettings({ ...settings, pageRange: "custom" })} 
-                      />
-                      <span>Custom Range</span>
-                    </label>
-                  </div>
-                  {settings.pageRange === "custom" && (
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 1-5, 8, 11-13" 
-                      value={settings.customPages} 
-                      onChange={(e) => setSettings({ ...settings, customPages: e.target.value })} 
-                      className={styles.input} 
+                {/* Settings */}
+                <div className={styles.settingsContainer}>
+                  <div className={styles.settingGroup}>
+                    <label>COPIES</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={settings.copies}
+                      onChange={(e) => setSettings({ ...settings, copies: Number.parseInt(e.target.value) || 1 })}
+                      className={styles.input}
                     />
-                  )}
-                </div>
-
-                <div className={styles.settingGroup}>
-                  <label>COLOR MODE</label>
-                  <div className={styles.buttonGroup}>
-                    <button 
-                      className={`${styles.optionBtn} ${settings.colorMode === "color" ? styles.active : ""}`} 
-                      onClick={() => setSettings({ ...settings, colorMode: "color" })}
-                    >
-                      🎨 Color
-                    </button>
-                    <button 
-                      className={`${styles.optionBtn} ${settings.colorMode === "bw" ? styles.active : ""}`} 
-                      onClick={() => setSettings({ ...settings, colorMode: "bw" })}
-                    >
-                      ⚫ Black & White
-                    </button>
                   </div>
-                </div>
 
-                <div className={styles.settingGroup}>
-                  <label>DUPLEX</label>
-                  <div className={styles.buttonGroup}>
-                    <button 
-                      className={`${styles.optionBtn} ${settings.doubleSided === "one-side" ? styles.active : ""}`} 
-                      onClick={() => setSettings({ ...settings, doubleSided: "one-side" })}
-                    >
-                      📄 One-Sided
-                    </button>
-                    <button 
-                      className={`${styles.optionBtn} ${settings.doubleSided === "both-sides" ? styles.active : ""}`} 
-                      onClick={() => setSettings({ ...settings, doubleSided: "both-sides" })}
-                    >
-                      📑 Double-Sided
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div className={styles.previewSection}>
-                <h3>PREVIEW</h3>
-                <div className={styles.previewGrid}>
-                  {allPdfPages.map((page, index) => (
-                    <div key={index} className={styles.previewPage}>
-                      <div className={styles.pageNumber}>Page {page.pageNumber}</div>
-                      <canvas
-                        ref={(canvas) => {
-                          if (canvas && page.canvas) {
-                            const ctx = canvas.getContext("2d")
-                            if (!ctx) return
-                            const scale = 0.3
-                            canvas.width = page.canvas.width * scale
-                            canvas.height = page.canvas.height * scale
-                            ctx.drawImage(page.canvas, 0, 0, canvas.width, canvas.height)
-                            canvas.style.filter = settings.colorMode === "bw" ? "grayscale(100%)" : "none"
-                          }
-                        }}
-                        className={styles.previewCanvas}
-                      />
+                  <div className={styles.settingGroup}>
+                    <label>PAGES</label>
+                    <div className={styles.radioGroup}>
+                      <label className={styles.radioOption}>
+                        <input
+                          type="radio"
+                          name="pageRange"
+                          value="all"
+                          checked={settings.pageRange === "all"}
+                          onChange={() => setSettings({ ...settings, pageRange: "all" })}
+                        />
+                        <span>All Pages</span>
+                      </label>
+                      <label className={styles.radioOption}>
+                        <input
+                          type="radio"
+                          name="pageRange"
+                          value="custom"
+                          checked={settings.pageRange === "custom"}
+                          onChange={() => setSettings({ ...settings, pageRange: "custom" })}
+                        />
+                        <span>Custom Range</span>
+                      </label>
                     </div>
-                  ))}
-                  {allPdfPages.length === 0 && <div className={styles.loadingPreview}>Loading preview…</div>}
+                    {settings.pageRange === "custom" && (
+                      <input
+                        type="text"
+                        placeholder="e.g. 1-5, 8, 11-13"
+                        value={settings.customPages}
+                        onChange={(e) => setSettings({ ...settings, customPages: e.target.value })}
+                        className={styles.input}
+                      />
+                    )}
+                  </div>
+
+                  <div className={styles.settingGroup}>
+                    <label>COLOR MODE</label>
+                    <div className={styles.buttonGroup}>
+                      <button
+                        className={`${styles.optionBtn} ${settings.colorMode === "color" ? styles.active : ""}`}
+                        onClick={() => setSettings({ ...settings, colorMode: "color" })}
+                      >
+                        🎨 Color
+                      </button>
+                      <button
+                        className={`${styles.optionBtn} ${settings.colorMode === "bw" ? styles.active : ""}`}
+                        onClick={() => setSettings({ ...settings, colorMode: "bw" })}
+                      >
+                        ⚫ Black & White
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.settingGroup}>
+                    <label>DUPLEX</label>
+                    <div className={styles.buttonGroup}>
+                      <button
+                        className={`${styles.optionBtn} ${settings.doubleSided === "one-side" ? styles.active : ""}`}
+                        onClick={() => setSettings({ ...settings, doubleSided: "one-side" })}
+                      >
+                        📄 One-Sided
+                      </button>
+                      <button
+                        className={`${styles.optionBtn} ${settings.doubleSided === "both-sides" ? styles.active : ""}`}
+                        onClick={() => setSettings({ ...settings, doubleSided: "both-sides" })}
+                      >
+                        📑 Double-Sided
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                <div className={styles.previewSection}>
+                  <h3>PREVIEW</h3>
+                  <div className={styles.previewGrid}>
+                    {allPdfPages.map((page, index) => (
+                      <div key={index} className={styles.previewPage}>
+                        <div className={styles.pageNumber}>Page {page.pageNumber}</div>
+                        <canvas
+                          ref={(canvas) => {
+                            if (canvas && page.canvas) {
+                              const ctx = canvas.getContext("2d")
+                              if (!ctx) return
+                              const scale = 0.3
+                              canvas.width = page.canvas.width * scale
+                              canvas.height = page.canvas.height * scale
+                              ctx.drawImage(page.canvas, 0, 0, canvas.width, canvas.height)
+                              canvas.style.filter = settings.colorMode === "bw" ? "grayscale(100%)" : "none"
+                            }
+                          }}
+                          className={styles.previewCanvas}
+                        />
+                      </div>
+                    ))}
+                    {allPdfPages.length === 0 && <div className={styles.loadingPreview}>Loading preview…</div>}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className={styles.fullscreenFooter}>
-              <div className={styles.costDisplay}>
-                <span>TOTAL COST</span>
-                <span className={styles.cost}>₹{calculateCost()}</span>
+              {/* Footer */}
+              <div className={styles.fullscreenFooter}>
+                <div className={styles.costDisplay}>
+                  <span>TOTAL COST</span>
+                  <span className={styles.cost}>₹{calculateCost()}</span>
+                </div>
+                <button
+                  className={styles.addToQueueBtn}
+                  onClick={handleAddPdfToQueue}
+                  disabled={calculateCost() === 0}
+                >
+                  <span className={styles.uploadPlusIcon}>+</span>
+                  <span>ADD TO QUEUE</span>
+                </button>
               </div>
-              <button 
-                className={styles.addToQueueBtn} 
-                onClick={handleAddPdfToQueue} 
-                disabled={calculateCost() === 0}
-              >
-                <span className={styles.uploadPlusIcon}>+</span>
-                <span>ADD TO QUEUE</span>
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* ═══ Image Print Settings Modal ═══ */}
-      {showImageSettings && imageFiles.length > 0 && (
-        <ImagePrintSettings
-          images={imageUrls}
-          onClose={() => setShowImageSettings(false)}
-          onAddToQueue={handleAddImageToQueue}
-        />
-      )}
+      {
+        showImageSettings && imageFiles.length > 0 && (
+          <ImagePrintSettings
+            images={imageUrls}
+            onClose={() => setShowImageSettings(false)}
+            onAddToQueue={handleAddImageToQueue}
+          />
+        )
+      }
 
       {/* ═══ Verification Loader ═══ */}
-      {verifying && (
-        <div className={styles.loaderOverlay}>
-          <div className={styles.loaderContent}>
-            <div className={styles.loaderSpinner}>
-              <div className={styles.spinnerRing}></div>
-              <div className={styles.spinnerRing}></div>
-              <div className={styles.spinnerRing}></div>
+      {
+        verifying && (
+          <div className={styles.loaderOverlay}>
+            <div className={styles.loaderContent}>
+              <div className={styles.loaderSpinner}>
+                <div className={styles.spinnerRing}></div>
+                <div className={styles.spinnerRing}></div>
+                <div className={styles.spinnerRing}></div>
+              </div>
+              <p className={styles.loaderText}>VERIFYING FILES</p>
+              <p className={styles.loaderSubtext}>Please wait...</p>
             </div>
-            <p className={styles.loaderText}>VERIFYING FILES</p>
-            <p className={styles.loaderSubtext}>Please wait...</p>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   )
 }
