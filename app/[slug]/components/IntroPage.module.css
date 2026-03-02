@@ -1,22 +1,122 @@
+/* ═══════════════════════════════════════════
+   INTRO PAGE — Dark Editorial Design
+   Inter + Space Mono · Dark/Light Toggle
+   ═══════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Space+Mono:wght@400;700&display=swap');
+
+/* ─── Base ─── */
 .container {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background:#333333;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease, background 0.3s ease;
+  font-family: 'Inter', -apple-system, sans-serif;
+  gap: 2.5rem;
 }
 
 .container.exiting {
   opacity: 0;
 }
 
+/* ─── Dark mode (default) ─── */
+.container.dark {
+  background: #111111;
+}
+
+.container.dark .icon svg {
+  stroke: rgba(255, 255, 255, 0.75);
+  fill: none;
+}
+
+.container.dark .logoText {
+  color: #ffffff;
+}
+
+.container.dark .tapHint {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.container.dark .themeToggle {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.container.dark .themeToggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* ─── Light mode ─── */
+.container.light {
+  background: #f5f5f5;
+}
+
+.container.light .icon svg {
+  stroke: rgba(0, 0, 0, 0.55);
+  fill: none;
+}
+
+.container.light .logoText {
+  color: #000000;
+}
+
+.container.light .tapHint {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.container.light .themeToggle {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.container.light .themeToggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #000000;
+}
+
+/* ─── Theme toggle button ─── */
+.themeToggle {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+/* ─── Logo ─── */
+.logoWrap {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.5rem;
+}
+
+.logoText {
+  font-size: 1.75rem;
+  font-weight: 900;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -2px;
+  transition: color 0.3s;
+}
+
+/* ─── Animated Icon ─── */
 .iconWrap {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
 }
 
 .icon {
@@ -26,21 +126,43 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  /* transform: scale(0.6) rotate(-60deg); */
   transition: opacity 0.15s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .icon.show {
   opacity: 1;
-  /* transform: scale(1) rotate(0deg); */
 }
 
 .icon svg {
-  width: 38px;
-  height: 38px;
-  stroke: rgba(255, 255, 255, 0.78);
-  fill: none;
-  stroke-width: 1.6;
+  width: 42px;
+  height: 42px;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: stroke 0.3s ease;
+}
+
+/* ─── Tap hint ─── */
+.tapHint {
+  position: absolute;
+  bottom: 2.5rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  font-family: 'Space Mono', monospace;
+  margin: 0;
+  transition: color 0.3s;
+  animation: blinkHint 2.5s ease-in-out infinite;
+}
+
+@keyframes blinkHint {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
 }

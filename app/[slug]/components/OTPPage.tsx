@@ -1,70 +1,85 @@
 "use client"
 
+import { useState } from "react"
+import { CheckCircle, Copy, Printer, ShieldCheck } from "lucide-react"
 import styles from "./OTPPage.module.css"
 
 interface OTPPageProps {
   otp: string
   onNewPrint?: () => void
+  isDark?: boolean
 }
 
-export default function OTPPage({ otp, onNewPrint }: OTPPageProps) {
+export default function OTPPage({ otp, onNewPrint, isDark = true }: OTPPageProps) {
+  const [copied, setCopied] = useState(false)
+
   const handleCopyOTP = () => {
     navigator.clipboard.writeText(otp)
-    alert('OTP copied to clipboard!')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
     <div className={styles.container}>
+      {/* Grid lines decoration */}
+      <div className={styles.gridLines} aria-hidden="true">
+        <span /><span /><span /><span />
+      </div>
+
       <div className={styles.content}>
-        {/* Success Icon */}
-        <div className={styles.successIcon}>
-          <svg viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+        {/* Step label */}
+        <div className={styles.stepLabel}>
+          <span className={styles.stepNum}>03.</span>
+          <span className={styles.stepText}>PAYMENT CONFIRMED</span>
+        </div>
+
+        {/* Icon */}
+        <div className={styles.successIconWrap}>
+          <CheckCircle size={48} strokeWidth={1.5} className={styles.successIcon} />
         </div>
 
         {/* Title */}
-        <h1 className={styles.title}>PAYMENT SUCCESSFUL</h1>
+        <h1 className={styles.title}>PAYMENT<br />SUCCESSFUL</h1>
         <p className={styles.subtitle}>Your OTP Code</p>
 
         {/* OTP Display */}
         <div className={styles.otpContainer}>
+          <div className={styles.otpLabel}>
+            <ShieldCheck size={14} strokeWidth={2} />
+            <span>SECURE CODE</span>
+          </div>
           <div className={styles.otpCode}>{otp}</div>
+          <div className={styles.otpHint}>Valid for this session only</div>
         </div>
 
         {/* Instructions */}
         <p className={styles.instructions}>
-          Enter this OTP on the kiosk screen to print your documents
+          Enter this OTP on the kiosk screen to collect your printed documents.
         </p>
 
-        {/* Action Buttons */}
+        {/* Buttons */}
         <div className={styles.actionButtons}>
-          <button 
-            className={styles.primaryButton}
+          <button
+            className={`${styles.primaryButton} ${copied ? styles.copied : ""}`}
             onClick={handleCopyOTP}
           >
-            COPY OTP
+            <Copy size={16} strokeWidth={2.5} />
+            {copied ? "COPIED!" : "COPY OTP"}
           </button>
-          
+
           {onNewPrint && (
-            <button 
-              className={styles.secondaryButton}
-              onClick={onNewPrint}
-            >
-              PRINT ANOTHER DOCUMENT
+            <button className={styles.secondaryButton} onClick={onNewPrint}>
+              <Printer size={16} strokeWidth={2} />
+              PRINT ANOTHER
             </button>
           )}
         </div>
 
         {/* Info */}
         <div className={styles.infoBox}>
-          <span className={styles.infoIcon}>ℹ️</span>
+          <ShieldCheck size={16} strokeWidth={1.5} className={styles.infoIconSvg} />
           <span className={styles.infoText}>
-            Your files will be deleted automatically after printing for your security
+            Your files will be deleted automatically after printing for your security.
           </span>
         </div>
       </div>

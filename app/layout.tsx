@@ -1,40 +1,30 @@
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-});
+  display: "swap",
+})
 
 export const metadata: Metadata = {
-  title: "Print Kiosk - Upload & Print",
-  description: "Upload your documents and print at the kiosk",
-};
+  title: "PRINTIT — Self-Service Printing Kiosk",
+  description: "Upload, configure, pay and print — all in under 2 minutes.",
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html 
-      lang="en" 
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
-      style={{ backgroundColor: "#000000" }}
-    >
+    <html lang="en" className={inter.variable}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className="font-sans antialiased" style={{ backgroundColor: "#000000" }}>
+      <body className="antialiased">
         {children}
       </body>
     </html>
-  );
+  )
 }

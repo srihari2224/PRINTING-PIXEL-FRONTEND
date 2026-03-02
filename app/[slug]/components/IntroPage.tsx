@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { Moon, Sun } from "lucide-react"
 import styles from "./IntroPage.module.css"
 
 interface IntroPageProps {
   onFinish: () => void
 }
 
-// ─── Icons: same subtle white stroke style as video ───
+// ─── Icons: professional stroke ───
 const ICONS = [
   // Smile
   <svg key="smile" viewBox="0 0 24 24">
@@ -29,7 +30,7 @@ const ICONS = [
     <line x1="16" y1="13" x2="8" y2="13" />
     <line x1="16" y1="17" x2="8" y2="17" />
   </svg>,
-  // Cloud
+  // Cloud Upload
   <svg key="cloud" viewBox="0 0 24 24">
     <polyline points="16 16 12 12 8 16" />
     <line x1="12" y1="12" x2="12" y2="21" />
@@ -40,7 +41,7 @@ const ICONS = [
     <path d="M5 12.55a11 11 0 0 1 14.08 0" />
     <path d="M1.42 9a16 16 0 0 1 21.16 0" />
     <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-    <circle cx="12" cy="20" r="1.2" fill="rgba(255,255,255,0.78)" stroke="none" />
+    <circle cx="12" cy="20" r="1.2" fill="currentColor" stroke="none" />
   </svg>,
   // Star
   <svg key="star" viewBox="0 0 24 24">
@@ -57,18 +58,18 @@ const ICONS = [
   </svg>,
 ]
 
-// timing budget (ms) — must all fit inside 3000ms
-const ICON_SHOW   = 180  // how long icon is visible
-const ICON_GAP    = 110  // pause between icons
-const TOTAL_MS    = 3000 // hard cap
+const ICON_SHOW = 180
+const ICON_GAP = 110
+const TOTAL_MS = 3000
 
 export default function IntroPage({ onFinish }: IntroPageProps) {
-  const [current, setCurrent]   = useState(0)
-  const [visible, setVisible]   = useState(false)
-  const [exiting, setExiting]   = useState(false)
-  const tickRef                 = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const idxRef                  = useRef(0)
-  const doneRef                 = useRef(false)
+  const [current, setCurrent] = useState(0)
+  const [visible, setVisible] = useState(false)
+  const [exiting, setExiting] = useState(false)
+  const [dark, setDark] = useState(true)
+  const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const idxRef = useRef(0)
+  const doneRef = useRef(false)
 
   const finish = () => {
     if (doneRef.current) return
@@ -79,17 +80,12 @@ export default function IntroPage({ onFinish }: IntroPageProps) {
   }
 
   useEffect(() => {
-    // hard 3-second kill
     const hard = setTimeout(finish, TOTAL_MS)
 
     const step = () => {
-      // show
       setVisible(true)
-
       tickRef.current = setTimeout(() => {
-        // hide
         setVisible(false)
-
         tickRef.current = setTimeout(() => {
           idxRef.current += 1
           if (idxRef.current >= ICONS.length) {
@@ -111,16 +107,47 @@ export default function IntroPage({ onFinish }: IntroPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const toggleTheme = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDark((d) => {
+      const next = !d
+      // Persist preference to localStorage
+      try { localStorage.setItem("pp-theme", next ? "dark" : "light") } catch { }
+      return next
+    })
+  }
+
   return (
     <div
-      className={`${styles.container} ${exiting ? styles.exiting : ""}`}
+      className={`${styles.container} ${exiting ? styles.exiting : ""} ${dark ? styles.dark : styles.light}`}
       onClick={finish}
     >
+      {/* Theme toggle */}
+      <button
+        className={styles.themeToggle}
+        onClick={toggleTheme}
+        aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        {dark
+          ? <Sun size={18} strokeWidth={2} />
+          : <Moon size={18} strokeWidth={2} />
+        }
+      </button>
+
+      {/* Logo */}
+      <div className={styles.logoWrap}>
+        <span className={styles.logoText}>ezio</span>
+      </div>
+
+      {/* Animated icon */}
       <div className={styles.iconWrap}>
         <div className={`${styles.icon} ${visible ? styles.show : ""}`}>
           {ICONS[current]}
         </div>
       </div>
+
+      {/* Tap hint */}
+      <p className={styles.tapHint}>TAP TO CONTINUE</p>
     </div>
   )
 }

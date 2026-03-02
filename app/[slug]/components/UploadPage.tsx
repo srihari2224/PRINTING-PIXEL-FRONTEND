@@ -1,8 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Dithering } from "@paper-design/shaders-react"
-import { X, FileText, Image as ImageIcon, ArrowLeft, ArrowRight, Hand } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import {
+  X,
+  FileText,
+  Image as ImageIcon,
+  ArrowLeft,
+  ArrowRight,
+  Plus,
+  Printer,
+  Upload,
+  ChevronRight,
+  Layers,
+} from "lucide-react"
 import ImagePrintSettings from "./ImagePrintSettings"
 import styles from "./UploadPage.module.css"
 
@@ -32,6 +42,11 @@ interface QueueItem {
 interface UploadPageProps {
   slug: string
   onUploadComplete: (data: any) => void
+  initialQueue?: QueueItem[]
+  initialFiles?: File[]
+  initialImageFiles?: File[]
+  isDark?: boolean
+  onThemeToggle?: () => void
 }
 
 declare global {
@@ -40,10 +55,10 @@ declare global {
   }
 }
 
-export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) {
-  const [files, setFiles] = useState<File[]>([])
-  const [imageFiles, setImageFiles] = useState<File[]>([])
-  const [printQueue, setPrintQueue] = useState<QueueItem[]>([])
+export default function UploadPage({ slug, onUploadComplete, initialQueue, initialFiles, initialImageFiles, isDark = true, onThemeToggle }: UploadPageProps) {
+  const [files, setFiles] = useState<File[]>(initialFiles || [])
+  const [imageFiles, setImageFiles] = useState<File[]>(initialImageFiles || [])
+  const [printQueue, setPrintQueue] = useState<QueueItem[]>(initialQueue || [])
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null)
   const [showPdfSettings, setShowPdfSettings] = useState(false)
   const [showImageSettings, setShowImageSettings] = useState(false)
@@ -52,6 +67,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
   const [loading, setLoading] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState("")
+  const [pdfThumbnails, setPdfThumbnails] = useState<{ [key: string]: string }>({})
 
   const [settings, setSettings] = useState({
     copies: 1,
@@ -61,13 +77,18 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     colorMode: "bw" as "color" | "bw",
   })
 
-  /* ── page counts state ── */
   const [pageCounts, setPageCounts] = useState<{ [key: string]: number }>({})
+
+  const addMoreRef = useRef<HTMLInputElement>(null)
 
   /* ── load PDF.js once ── */
   useEffect(() => {
     if (typeof window === "undefined") return
-    if (window.pdfjsLib) return
+    if (window.pdfjsLib) {
+      // Already loaded — still regenerate thumbnails for restored files
+      restoreInitialFileThumbnails()
+      return
+    }
     const script = document.createElement("script")
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
     script.onload = () => {
@@ -75,9 +96,21 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
       }
+      restoreInitialFileThumbnails()
     }
     document.head.appendChild(script)
   }, [])
+
+  /* ── regenerate thumbnails/page-counts for files restored from back-nav ── */
+  const restoreInitialFileThumbnails = () => {
+    if (!initialFiles || initialFiles.length === 0) return
+    initialFiles.forEach(async (file) => {
+      const count = await getPDFPageCount(file)
+      setPageCounts((prev) => ({ ...prev, [file.name]: count }))
+      generatePdfThumbnail(file)
+    })
+  }
+
 
   /* ── file input handler ── */
   const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,7 +120,6 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     setVerifying(true)
     setError("")
 
-    // Process PDFs for page counts immediately (but don't block UI too long)
     const pdfs = list.filter((f) => f.type.includes("pdf"))
     const images = list.filter((f) => f.type.startsWith("image/"))
 
@@ -97,10 +129,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
       return
     }
 
-    // Initialize counts for new PDFs
     const newCounts: { [key: string]: number } = {}
-
-    // We can do this concurrently
     await Promise.all(
       pdfs.map(async (file) => {
         const count = await getPDFPageCount(file)
@@ -109,9 +138,56 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     )
 
     setPageCounts((prev) => ({ ...prev, ...newCounts }))
-    setFiles(pdfs)
-    setImageFiles(images)
+
+    // Merge with existing files
+    setFiles((prev) => {
+      const existing = prev.map((f) => f.name)
+      const newPdfs = pdfs.filter((f) => !existing.includes(f.name))
+      return [...prev, ...newPdfs]
+    })
+    setImageFiles((prev) => {
+      const existing = prev.map((f) => f.name)
+      const newImgs = images.filter((f) => !existing.includes(f.name))
+      return [...prev, ...newImgs]
+    })
+
+    // Generate thumbnails for new PDFs
+    for (const file of pdfs) {
+      generatePdfThumbnail(file)
+    }
+
     setVerifying(false)
+
+    // Reset input so same file can be re-added if needed
+    e.target.value = ""
+  }
+
+  /* ── generate first-page thumbnail ── */
+  const generatePdfThumbnail = async (file: File) => {
+    try {
+      if (!window.pdfjsLib) return
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const typedArray = new Uint8Array(e.target?.result as ArrayBuffer)
+          const pdf = await window.pdfjsLib.getDocument({ data: typedArray }).promise
+          const page = await pdf.getPage(1)
+          const viewport = page.getViewport({ scale: 1.5 })
+          const canvas = document.createElement("canvas")
+          const context = canvas.getContext("2d")
+          canvas.height = viewport.height
+          canvas.width = viewport.width
+          await page.render({ canvasContext: context, viewport }).promise
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85)
+          setPdfThumbnails((prev) => ({ ...prev, [file.name]: dataUrl }))
+        } catch (err) {
+          console.error("Thumbnail generation error:", err)
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    } catch (err) {
+      console.error("Thumbnail error:", err)
+    }
   }
 
   const handleBackToUpload = () => {
@@ -120,6 +196,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     setPrintQueue([])
     setError("")
     setPageCounts({})
+    setPdfThumbnails({})
   }
 
   /* ── PDF helpers ── */
@@ -177,8 +254,7 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
 
   const handlePdfClick = async (file: File) => {
     setSelectedPdf(file)
-    // Use stored count if available, else fetch
-    const pageCount = pageCounts[file.name] || await getPDFPageCount(file)
+    const pageCount = pageCounts[file.name] || (await getPDFPageCount(file))
     setPdfPageCount(pageCount)
     setSettings({ copies: 1, pageRange: "all", customPages: "", doubleSided: "one-side", colorMode: "bw" })
     await loadPDFPreview(file)
@@ -225,13 +301,10 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
     if (!selectedPdf) return
     const pagesToPrint = settings.pageRange === "all" ? pdfPageCount : calculateCustomPages()
 
-    // Capture thumbnail from first page if available
-    let thumbnailUrl = ""
-    if (allPdfPages.length > 0) {
+    let thumbnailUrl = pdfThumbnails[selectedPdf.name] || ""
+    if (!thumbnailUrl && allPdfPages.length > 0) {
       const firstPage = allPdfPages.find((p) => p.pageNumber === 1)
-      if (firstPage && firstPage.canvas) {
-        thumbnailUrl = firstPage.canvas.toDataURL()
-      }
+      if (firstPage?.canvas) thumbnailUrl = firstPage.canvas.toDataURL()
     }
 
     const queueItem: QueueItem = {
@@ -288,10 +361,9 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
       })
       if (!uploadRes.ok) throw new Error("Upload failed")
       const data = await uploadRes.json()
-      onUploadComplete({ ...data, kioskId: slug })
+      onUploadComplete({ ...data, kioskId: slug, _queue: printQueue, _files: files, _imageFiles: imageFiles })
     } catch (err: any) {
       setError(err?.message || "Upload failed")
-    } finally {
       setLoading(false)
     }
   }
@@ -310,57 +382,61 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
   /* ════════════════════ RENDER ════════════════════ */
   return (
     <div className={`${styles.container} ${showEmptyState ? styles.emptyState : ""}`}>
-      {/* dithering bg — only after upload */}
-      {!showEmptyState && <Dithering className={styles.backgroundPattern} speed={0.0003} />}
+
+      {/* ─── UPLOAD LOADER OVERLAY ─── */}
+      {loading && (
+        <div className={styles.uploadOverlay}>
+          <div className={styles.uploadLoaderBox}>
+            <div className={styles.uploadSpinner}>
+              <div className={styles.spinnerRing} />
+              <div className={styles.spinnerRing} />
+              <div className={styles.spinnerRing} />
+            </div>
+            <p className={styles.uploadLoaderTitle}>UPLOADING</p>
+            <p className={styles.uploadLoaderSub}>Please wait...</p>
+          </div>
+        </div>
+      )}
 
       <div className={styles.content}>
         {/* ─── EMPTY / LANDING STATE ─── */}
         {showEmptyState ? (
-          <div className={styles.emptyStateWrapper}>
-            {/* header row: logo + hamburger */}
+          <div className={`${styles.emptyStateWrapper} ${isDark ? styles.dark : styles.light}`}>
+
+            {/* ── Top bar ── */}
             <div className={styles.emptyHeader}>
               <div className={styles.emptyLogo}>
-                <span className={styles.logoText}>ezio</span>
+                <span className={styles.logoMark}>PRINTIT</span>
               </div>
-              <button className={styles.emptyMenuBtn} aria-label="menu">
-                <div className={styles.menuIcon}>
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </button>
+              {onThemeToggle && (
+                <button className={styles.themeToggleBtn} onClick={onThemeToggle} aria-label="Toggle theme">
+                  {isDark
+                    ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+                    : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+                  }
+                </button>
+              )}
             </div>
 
-            {/* middle hero — full-width #333 block with poster image */}
-            <div className={styles.emptyMiddle}>
-              <div className={styles.heroImageContainer}>
-                <img
-                  src="/images/upload-bg-poster.png"
-                  alt="Print My Images PDF"
-                  className={styles.heroImage}
-                />
-              </div>
-            </div>
-
-            {/* bottom white section — "Services"-style title */}
-            <div className={styles.emptyServices}>
-              {/* large ghost outline text behind */}
-              <div className={styles.servicesOutlineText} aria-hidden="true">
-                UPLOAD
-              </div>
-              {/* solid heading on top */}
-              <div className={styles.servicesTitleWrapper}>
-                <h1 className={styles.servicesTitle}>UPLOAD</h1>
-              </div>
-            </div>
-
-            {/* description + pill button */}
-            <div className={styles.emptyBottom}>
-              <p className={styles.servicesDesc}>
-                We love crafting beautiful, smart and inspired work that is
-                focused on your business&apos; goals and customers. We do this
-                across multiple touch points to help you achieve your vision.
+            {/* ── Hero ── */}
+            <div className={styles.heroSection}>
+              <div className={styles.heroLabel}>SELF-SERVICE PRINTING KIOSK</div>
+              <h1 className={styles.heroTitle}>
+                Print anything,<br />
+                <span className={styles.heroAccent}>instantly.</span>
+              </h1>
+              <p className={styles.heroDesc}>
+                Upload your PDFs &amp; images. Configure print settings. Pay &amp; collect — all in under 2 minutes.
               </p>
+
+              {/* Feature pills */}
+              <div className={styles.featurePills}>
+                <span className={styles.pill}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>Fast</span>
+                <span className={styles.pill}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="1" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>Secure</span>
+                <span className={styles.pill}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>Kiosk-Ready</span>
+              </div>
+
+              {/* CTA */}
               <label className={styles.discoverButton}>
                 <input
                   type="file"
@@ -369,414 +445,423 @@ export default function UploadPage({ slug, onUploadComplete }: UploadPageProps) 
                   onChange={handleFilesChange}
                   className={styles.fileInput}
                 />
-                <span className={styles.uploadPlusIcon}>+</span>
-                <span>UPLOAD</span>
+                <Plus size={20} strokeWidth={2.5} />
+                <span>SELECT FILES</span>
               </label>
+
+              <p className={styles.ctaHint}>PDF and image files supported · Max 50 MB</p>
+            </div>
+
+            {/* ── Footer ── */}
+            <div className={styles.emptyFooter}>
+              <span>Powered by</span>
+              <span className={styles.footerBrand}>INNVERA</span>
             </div>
           </div>
         ) : (
-          /* ─── ACTIVE STATE header with FILES design + Back button ─── */
-          <>
-            {/* <div className={styles.filesHeader}>
-              <div className={styles.filesServicesOutlineText} aria-hidden="true">
-                FILES
-              </div>
-              <div className={styles.filesServicesTitleWrapper}>
-                <h1 className={styles.filesServicesTitle}>FILES</h1>
-              </div>
-              <button className={styles.backButton} onClick={handleBackToUpload}>
-                <ArrowLeft size={20} />
+          /* ─── ACTIVE STATE ─── */
+          <div className={styles.activeState}>
+
+            {/* ── Top bar: back + add more files ── */}
+            <div className={styles.topBar}>
+              <button className={styles.topBackBtn} onClick={handleBackToUpload} aria-label="Back">
+                <ArrowLeft size={20} strokeWidth={2} />
               </button>
-            </div> */}
-          </>
-        )}
-
-        {/* ─── PDF list ─── */}
-        {!showEmptyState && files.length > 0 && (
-          <div className={styles.pdfSection}>
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionHeaderLeft}>
-                <FileText size={20} />
-                <h3>PDF DOCUMENTS</h3>
-              </div>
-              <div className={styles.sectionCount}>{files.length}</div>
+              <span className={styles.topBarTitle}>FILES</span>
+              <label className={styles.addMoreBtn}>
+                <input
+                  ref={addMoreRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,image/*"
+                  onChange={handleFilesChange}
+                  className={styles.fileInput}
+                />
+                <Plus size={16} strokeWidth={2.5} />
+                <span>Add Files</span>
+              </label>
             </div>
 
-            <div className={styles.scrollHintOverlay}>
-              <Hand size={16} /> Slide to view
-            </div>
-
-            {/* New Horizontal Card Layout */}
-            <div className={styles.pdfList}>
-              {files.map((file, index) => (
-                <div key={index} className={styles.pdfCard} onClick={() => handlePdfClick(file)}>
-
-                  {/* Top Header - Image/Pattern */}
-                  <div className={styles.cardHeader}>
-                    {/* Placeholder content or just gradient */}
-                    <button className={styles.editBtn}>Edit</button>
+            {/* ── PDF LIST ── */}
+            {files.length > 0 && (
+              <div className={styles.pdfSection}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <FileText size={16} strokeWidth={2} />
+                    <h3>PDF DOCUMENTS</h3>
                   </div>
-
-                  {/* Overlapping Icon */}
-                  <div className={styles.cardIconWrapper}>
-                    <FileText size={24} className={styles.pdfIconImg} />
-                  </div>
-
-                  {/* Bottom Footer - Info */}
-                  <div className={styles.cardFooter}>
-                    <div>
-                      <div className={styles.pdfName}>{file.name}</div>
-                      <div className={styles.pdfAuthor}>@user • Uploaded</div>
-                    </div>
-                    <div className={styles.pdfMeta}>
-                      <span>{(file.size / 1024).toFixed(0)} KB</span>
-                      {pageCounts[file.name] !== undefined && (
-                        <span>{pageCounts[file.name]} Pages</span>
-                      )}
-                    </div>
-                  </div>
-
+                  <div className={styles.sectionCount}>{files.length}</div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* ─── Image list ─── */}
-        {!showEmptyState && imageFiles.length > 0 && (
-          <div className={styles.pdfSection}>
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionHeaderLeft}>
-                <ImageIcon size={20} />
-                <h3>IMAGES</h3>
-              </div>
-              <div className={styles.sectionCount}>{imageFiles.length}</div>
-            </div>
-            {/* Horizontal Scroll List */}
-            <div className={styles.imageList}>
-              {imageFiles.map((file, index) => (
-                <div key={index} className={styles.imageCard}>
-                  <img src={URL.createObjectURL(file)} alt={file.name} className={styles.imagePreview} />
-                </div>
-              ))}
-            </div>
-            <button className={styles.arrangeImagesBtn} onClick={() => setShowImageSettings(true)}>
-              <span>Arrange images</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        )}
-
-        {/* ─── Queue Section ─── */}
-        {!showEmptyState && printQueue.length > 0 && (
-          <div className={styles.queueSection}>
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionHeaderLeft}>
-                <h3>PRINT QUEUE</h3>
-              </div>
-              <div className={styles.sectionCount}>{printQueue.length}</div>
-            </div>
-
-            <div className={styles.queueContainer}>
-              {/* Left Side: Scrollable Queue Items (70%) */}
-              <div className={styles.queueItemsWrapper}>
-                {printQueue.map((item, index) => {
-                  const isPdf = item.type === "pdf"
-                  // Helpers for Image Card
-                  const itemImages = imageFiles.filter((img) => img.name === item.fileName)
-                  const displayImages = itemImages.length > 0 ? itemImages : imageFiles.slice(0, 3)
-                  while (displayImages.length > 0 && displayImages.length < 3) {
-                    displayImages.push(displayImages[0])
-                  }
-
-                  return (
+                <div className={styles.pdfList}>
+                  {files.map((file, index) => (
                     <div
                       key={index}
-                      className={`${styles.queueCard} ${isPdf ? styles.pdfQueueCard : styles.imageQueueCard}`}
+                      className={styles.pdfCard}
+                      onClick={() => handlePdfClick(file)}
                     >
-                      {/* Delete Button (Common) */}
-                      <button
-                        className={styles.queueDeleteBtn}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          removeFromQueue(item.id)
-                        }}
-                      >
-                        <X size={14} />
-                      </button>
-
-                      {/* Header */}
+                      {/* Card header — PDF first page thumbnail */}
                       <div
-                        className={styles.queueCardHeader}
+                        className={styles.cardHeader}
                         style={
-                          isPdf && item.thumbnailUrl
-                            ? { backgroundImage: `url(${item.thumbnailUrl})` }
+                          pdfThumbnails[file.name]
+                            ? {
+                              backgroundImage: `url(${pdfThumbnails[file.name]})`,
+                              backgroundSize: "cover",
+                              backgroundPosition: "top center",
+                            }
                             : undefined
                         }
                       >
-                        {isPdf ? (
-                          // PDF Header Content
-                          <div
-                            className={styles.pdfBadge}
-                            style={item.thumbnailUrl ? { display: "none" } : undefined}
-                          >
-                            PDF
+                        {!pdfThumbnails[file.name] && (
+                          <div className={styles.cardHeaderPlaceholder}>
+                            <FileText size={32} strokeWidth={1.5} />
                           </div>
-                        ) : (
-                          // Image Header Content
-                          <>
-                            <div className={styles.memoriesLabel}>MEMORIES</div>
-                            <div className={styles.memoriesTitle}>{item.fileName || "Photo Collection"}</div>
-                            <div className={styles.memoriesDate}>
-                              {new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                            </div>
-                          </>
                         )}
+                        <button className={styles.editBtn} onClick={(e) => { e.stopPropagation(); handlePdfClick(file) }}>
+                          Edit
+                        </button>
                       </div>
 
-                      {/* Image Collage (Only for Images) */}
-                      {!isPdf && (
-                        <div className={styles.memoriesCollage}>
-                          {displayImages.slice(0, 3).map((img, i) => (
-                            <img key={i} src={URL.createObjectURL(img)} className={styles.collageImg} alt="" />
-                          ))}
-                        </div>
-                      )}
+                      {/* Overlapping icon */}
+                      <div className={styles.cardIconWrapper}>
+                        <FileText size={22} className={styles.pdfIconImg} strokeWidth={1.5} />
+                      </div>
 
-                      {/* Footer (Only for PDFs to show info) */}
-                      {isPdf && item.printSettings && (
-                        <div className={styles.queueCardFooter}>
-                          <div className={styles.queueTitle}>{item.fileName}</div>
-                          <div className={styles.queueSubtitle}>
-                            {item.printSettings.copies} {item.printSettings.copies === 1 ? "Copy" : "Copies"} •{" "}
-                            {item.printSettings.colorMode === "color" ? "Color" : "B&W"}
-                          </div>
-                          <div className={styles.queueSubtitle} style={{ fontSize: "0.7rem", marginTop: "4px" }}>
-                            {item.printSettings.pageRange === "all"
-                              ? "All Pages"
-                              : `Pages: ${item.printSettings.customPages}`}
-                          </div>
+                      {/* Footer */}
+                      <div className={styles.cardFooter}>
+                        <div>
+                          <div className={styles.pdfName}>{file.name}</div>
+                          <div className={styles.pdfAuthor}>@user · Uploaded</div>
                         </div>
-                      )}
+                        <div className={styles.pdfMeta}>
+                          <span>{(file.size / 1024).toFixed(0)} KB</span>
+                          {pageCounts[file.name] !== undefined && (
+                            <span>{pageCounts[file.name]} Pages</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-
-              {/* Right Side: Checkout Card (30%) */}
-              <div className={styles.checkoutWrapper}>
-                <div className={styles.checkoutCard} onClick={handleUpload}>
-                  <div className={styles.checkoutTotalLabel}>Total Pay</div>
-                  <div className={styles.checkoutTotalAmount}>₹{calculateTotalCost()}</div>
-
-                  <div className={styles.checkoutArrow}>
-                    <ArrowRight size={32} />
-                  </div>
-
-                  <div className={styles.checkoutText}>{loading ? "Processing..." : "Proceed to Payment"}</div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* ── IMAGE LIST ── */}
+            {imageFiles.length > 0 && (
+              <div className={styles.pdfSection}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <ImageIcon size={16} strokeWidth={2} />
+                    <h3>IMAGES</h3>
+                  </div>
+                  <div className={styles.sectionCount}>{imageFiles.length}</div>
+                </div>
+                <div className={styles.imageList}>
+                  {imageFiles.map((file, index) => (
+                    <div key={index} className={styles.imageCard}>
+                      <img src={URL.createObjectURL(file)} alt={file.name} className={styles.imagePreview} />
+                    </div>
+                  ))}
+                </div>
+                <button className={styles.arrangeImagesBtn} onClick={() => setShowImageSettings(true)}>
+                  <Layers size={16} strokeWidth={2} />
+                  <span>Arrange &amp; Print Images</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* ── QUEUE ── */}
+            {printQueue.length > 0 && (
+              <div className={styles.queueSection}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <Printer size={16} strokeWidth={2} />
+                    <h3>PRINT QUEUE</h3>
+                  </div>
+                  <div className={styles.sectionCount}>{printQueue.length}</div>
+                </div>
+
+                <div className={styles.queueList}>
+                  {printQueue.map((item, index) => {
+                    const isPdf = item.type === "pdf"
+                    const displayImages = imageFiles.slice(0, 3)
+                    while (displayImages.length > 0 && displayImages.length < 3) {
+                      displayImages.push(displayImages[0])
+                    }
+
+                    return (
+                      <div
+                        key={index}
+                        className={`${styles.queueCard} ${isPdf ? styles.pdfQueueCard : styles.imageQueueCard}`}
+                      >
+                        {/* Delete */}
+                        <button
+                          className={styles.queueDeleteBtn}
+                          onClick={(e) => { e.stopPropagation(); removeFromQueue(item.id) }}
+                        >
+                          <X size={12} strokeWidth={2.5} />
+                        </button>
+
+                        {/* Header */}
+                        <div
+                          className={styles.queueCardHeader}
+                          style={
+                            isPdf && item.thumbnailUrl
+                              ? { backgroundImage: `url(${item.thumbnailUrl})`, backgroundSize: "cover", backgroundPosition: "top center" }
+                              : undefined
+                          }
+                        >
+                          {isPdf ? (
+                            <div className={styles.pdfBadge} style={item.thumbnailUrl ? { display: "none" } : undefined}>
+                              PDF
+                            </div>
+                          ) : (
+                            <>
+                              <div className={styles.memoriesLabel}>PHOTOS</div>
+                              <div className={styles.memoriesTitle}>{item.fileName || "Collection"}</div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Image Collage */}
+                        {!isPdf && (
+                          <div className={styles.memoriesCollage}>
+                            {displayImages.slice(0, 3).map((img, i) => (
+                              <img key={i} src={URL.createObjectURL(img)} className={styles.collageImg} alt="" />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* PDF footer info */}
+                        {isPdf && item.printSettings && (
+                          <div className={styles.queueCardFooter}>
+                            <div className={styles.queueTitle}>{item.fileName}</div>
+                            <div className={styles.queueSubtitle}>
+                              {item.printSettings.copies} {item.printSettings.copies === 1 ? "Copy" : "Copies"} ·{" "}
+                              {item.printSettings.colorMode === "color" ? "Color" : "B&W"}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* error */}
+            {error && <div className={styles.errorMessage}>{error}</div>}
+
           </div>
         )}
       </div>
 
+      {/* ─── FIXED BOTTOM BAR (only when queue has items) ─── */}
+      {!showEmptyState && printQueue.length > 0 && (
+        <div className={styles.stickyBottom}>
+          <div className={styles.stickyLeft}>
+            <span className={styles.stickyLabel}>TOTAL</span>
+            <span className={styles.stickyAmount}>₹{calculateTotalCost()}</span>
+          </div>
+          <button
+            className={styles.stickyProceedBtn}
+            onClick={handleUpload}
+            disabled={loading}
+          >
+            {loading ? "Uploading..." : (
+              <>
+                <span>PROCEED</span>
+                <ChevronRight size={18} strokeWidth={2.5} />
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
-      {/* ─── error ─── */}
-      {!showEmptyState && error && <div className={styles.errorMessage}>{error}</div>}
+      {/* ─── PDF Settings Modal ─── */}
+      {showPdfSettings && selectedPdf && (
+        <div className={styles.fullscreenModal}>
+          <div className={styles.fullscreenContent}>
+            {/* Header */}
+            <div className={styles.fullscreenHeader}>
+              <button className={styles.backBtn} onClick={() => setShowPdfSettings(false)}>
+                <ArrowLeft size={20} strokeWidth={2} />
+              </button>
+              <h2>PDF SETTINGS</h2>
+              <div className={styles.headerSpacer} />
+            </div>
 
-      {/* ─── sticky footer ─── */}
-
-
-
-      {/* ═══ PDF Settings Modal - FULLSCREEN ═══ */}
-      {
-        showPdfSettings && selectedPdf && (
-          <div className={styles.fullscreenModal}>
-            <div className={styles.fullscreenContent}>
-              {/* Header */}
-              <div className={styles.fullscreenHeader}>
-                <button className={styles.backBtn} onClick={() => setShowPdfSettings(false)}>
-                  <X size={24} />
-                </button>
-                <h2>PDF SETTINGS</h2>
-                <div className={styles.headerSpacer} />
+            {/* Body */}
+            <div className={styles.fullscreenBody}>
+              {/* File Info */}
+              <div className={styles.fileInfoCard}>
+                <div className={styles.fileInfoIcon}>
+                  <FileText size={28} strokeWidth={1.5} />
+                </div>
+                <div className={styles.fileInfoText}>
+                  <h3>{selectedPdf.name.length > 30 ? `${selectedPdf.name.substring(0, 30)}...` : selectedPdf.name}</h3>
+                  <p>{pdfPageCount} pages · {(selectedPdf.size / 1024).toFixed(1)} KB</p>
+                </div>
               </div>
 
-              {/* Scrollable Content */}
-              <div className={styles.fullscreenBody}>
-                {/* File Info */}
-                <div className={styles.fileInfoCard}>
-                  <div className={styles.fileInfoIcon}>
-                    <FileText size={28} />
-                  </div>
-                  <div className={styles.fileInfoText}>
-                    <h3>{selectedPdf.name.length > 30 ? `${selectedPdf.name.substring(0, 30)}...` : selectedPdf.name}</h3>
-                    <p>{pdfPageCount} pages • {(selectedPdf.size / 1024).toFixed(1)} KB</p>
-                  </div>
+              {/* Settings */}
+              <div className={styles.settingsContainer}>
+                <div className={styles.settingGroup}>
+                  <label>COPIES</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={settings.copies}
+                    onChange={(e) => setSettings({ ...settings, copies: Number.parseInt(e.target.value) || 1 })}
+                    className={styles.input}
+                  />
                 </div>
 
-                {/* Settings */}
-                <div className={styles.settingsContainer}>
-                  <div className={styles.settingGroup}>
-                    <label>COPIES</label>
+                <div className={styles.settingGroup}>
+                  <label>PAGES</label>
+                  <div className={styles.radioGroup}>
+                    <label className={styles.radioOption}>
+                      <input
+                        type="radio"
+                        name="pageRange"
+                        value="all"
+                        checked={settings.pageRange === "all"}
+                        onChange={() => setSettings({ ...settings, pageRange: "all" })}
+                      />
+                      <span>All Pages</span>
+                    </label>
+                    <label className={styles.radioOption}>
+                      <input
+                        type="radio"
+                        name="pageRange"
+                        value="custom"
+                        checked={settings.pageRange === "custom"}
+                        onChange={() => setSettings({ ...settings, pageRange: "custom" })}
+                      />
+                      <span>Custom Range</span>
+                    </label>
+                  </div>
+                  {settings.pageRange === "custom" && (
                     <input
-                      type="number"
-                      min="1"
-                      max="99"
-                      value={settings.copies}
-                      onChange={(e) => setSettings({ ...settings, copies: Number.parseInt(e.target.value) || 1 })}
+                      type="text"
+                      placeholder="e.g. 1-5, 8, 11-13"
+                      value={settings.customPages}
+                      onChange={(e) => setSettings({ ...settings, customPages: e.target.value })}
                       className={styles.input}
                     />
-                  </div>
+                  )}
+                </div>
 
-                  <div className={styles.settingGroup}>
-                    <label>PAGES</label>
-                    <div className={styles.radioGroup}>
-                      <label className={styles.radioOption}>
-                        <input
-                          type="radio"
-                          name="pageRange"
-                          value="all"
-                          checked={settings.pageRange === "all"}
-                          onChange={() => setSettings({ ...settings, pageRange: "all" })}
-                        />
-                        <span>All Pages</span>
-                      </label>
-                      <label className={styles.radioOption}>
-                        <input
-                          type="radio"
-                          name="pageRange"
-                          value="custom"
-                          checked={settings.pageRange === "custom"}
-                          onChange={() => setSettings({ ...settings, pageRange: "custom" })}
-                        />
-                        <span>Custom Range</span>
-                      </label>
-                    </div>
-                    {settings.pageRange === "custom" && (
-                      <input
-                        type="text"
-                        placeholder="e.g. 1-5, 8, 11-13"
-                        value={settings.customPages}
-                        onChange={(e) => setSettings({ ...settings, customPages: e.target.value })}
-                        className={styles.input}
+                <div className={styles.settingGroup}>
+                  <label>COLOR MODE</label>
+                  <div className={styles.buttonGroup}>
+                    <button
+                      className={`${styles.optionBtn} ${settings.colorMode === "color" ? styles.active : ""}`}
+                      onClick={() => setSettings({ ...settings, colorMode: "color" })}
+                    >
+                      Color
+                    </button>
+                    <button
+                      className={`${styles.optionBtn} ${settings.colorMode === "bw" ? styles.active : ""}`}
+                      onClick={() => setSettings({ ...settings, colorMode: "bw" })}
+                    >
+                      Black &amp; White
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.settingGroup}>
+                  <label>DUPLEX</label>
+                  <div className={styles.buttonGroup}>
+                    <button
+                      className={`${styles.optionBtn} ${settings.doubleSided === "one-side" ? styles.active : ""}`}
+                      onClick={() => setSettings({ ...settings, doubleSided: "one-side" })}
+                    >
+                      One-Sided
+                    </button>
+                    <button
+                      className={`${styles.optionBtn} ${settings.doubleSided === "both-sides" ? styles.active : ""}`}
+                      onClick={() => setSettings({ ...settings, doubleSided: "both-sides" })}
+                    >
+                      Double-Sided
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className={styles.previewSection}>
+                <h3>PREVIEW</h3>
+                <div className={styles.previewGrid}>
+                  {allPdfPages.map((page, index) => (
+                    <div key={index} className={styles.previewPage}>
+                      <div className={styles.pageNumber}>Page {page.pageNumber}</div>
+                      <canvas
+                        ref={(canvas) => {
+                          if (canvas && page.canvas) {
+                            const ctx = canvas.getContext("2d")
+                            if (!ctx) return
+                            const scale = 0.3
+                            canvas.width = page.canvas.width * scale
+                            canvas.height = page.canvas.height * scale
+                            ctx.drawImage(page.canvas, 0, 0, canvas.width, canvas.height)
+                            canvas.style.filter = settings.colorMode === "bw" ? "grayscale(100%)" : "none"
+                          }
+                        }}
+                        className={styles.previewCanvas}
                       />
-                    )}
-                  </div>
-
-                  <div className={styles.settingGroup}>
-                    <label>COLOR MODE</label>
-                    <div className={styles.buttonGroup}>
-                      <button
-                        className={`${styles.optionBtn} ${settings.colorMode === "color" ? styles.active : ""}`}
-                        onClick={() => setSettings({ ...settings, colorMode: "color" })}
-                      >
-                        🎨 Color
-                      </button>
-                      <button
-                        className={`${styles.optionBtn} ${settings.colorMode === "bw" ? styles.active : ""}`}
-                        onClick={() => setSettings({ ...settings, colorMode: "bw" })}
-                      >
-                        ⚫ Black & White
-                      </button>
                     </div>
-                  </div>
-
-                  <div className={styles.settingGroup}>
-                    <label>DUPLEX</label>
-                    <div className={styles.buttonGroup}>
-                      <button
-                        className={`${styles.optionBtn} ${settings.doubleSided === "one-side" ? styles.active : ""}`}
-                        onClick={() => setSettings({ ...settings, doubleSided: "one-side" })}
-                      >
-                        📄 One-Sided
-                      </button>
-                      <button
-                        className={`${styles.optionBtn} ${settings.doubleSided === "both-sides" ? styles.active : ""}`}
-                        onClick={() => setSettings({ ...settings, doubleSided: "both-sides" })}
-                      >
-                        📑 Double-Sided
-                      </button>
-                    </div>
-                  </div>
+                  ))}
+                  {allPdfPages.length === 0 && <div className={styles.loadingPreview}>Loading preview…</div>}
                 </div>
-
-                {/* Preview */}
-                <div className={styles.previewSection}>
-                  <h3>PREVIEW</h3>
-                  <div className={styles.previewGrid}>
-                    {allPdfPages.map((page, index) => (
-                      <div key={index} className={styles.previewPage}>
-                        <div className={styles.pageNumber}>Page {page.pageNumber}</div>
-                        <canvas
-                          ref={(canvas) => {
-                            if (canvas && page.canvas) {
-                              const ctx = canvas.getContext("2d")
-                              if (!ctx) return
-                              const scale = 0.3
-                              canvas.width = page.canvas.width * scale
-                              canvas.height = page.canvas.height * scale
-                              ctx.drawImage(page.canvas, 0, 0, canvas.width, canvas.height)
-                              canvas.style.filter = settings.colorMode === "bw" ? "grayscale(100%)" : "none"
-                            }
-                          }}
-                          className={styles.previewCanvas}
-                        />
-                      </div>
-                    ))}
-                    {allPdfPages.length === 0 && <div className={styles.loadingPreview}>Loading preview…</div>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className={styles.fullscreenFooter}>
-                <div className={styles.costDisplay}>
-                  <span>TOTAL COST</span>
-                  <span className={styles.cost}>₹{calculateCost()}</span>
-                </div>
-                <button
-                  className={styles.addToQueueBtn}
-                  onClick={handleAddPdfToQueue}
-                  disabled={calculateCost() === 0}
-                >
-                  <span className={styles.uploadPlusIcon}>+</span>
-                  <span>ADD TO QUEUE</span>
-                </button>
               </div>
             </div>
-          </div>
-        )
-      }
 
-      {/* ═══ Image Print Settings Modal ═══ */}
-      {
-        showImageSettings && imageFiles.length > 0 && (
-          <ImagePrintSettings
-            images={imageUrls}
-            onClose={() => setShowImageSettings(false)}
-            onAddToQueue={handleAddImageToQueue}
-          />
-        )
-      }
-
-      {/* ═══ Verification Loader ═══ */}
-      {
-        verifying && (
-          <div className={styles.loaderOverlay}>
-            <div className={styles.loaderContent}>
-              <div className={styles.loaderSpinner}>
-                <div className={styles.spinnerRing}></div>
-                <div className={styles.spinnerRing}></div>
-                <div className={styles.spinnerRing}></div>
+            {/* Footer */}
+            <div className={styles.fullscreenFooter}>
+              <div className={styles.costDisplay}>
+                <span>TOTAL COST</span>
+                <span className={styles.cost}>₹{calculateCost()}</span>
               </div>
-              <p className={styles.loaderText}>VERIFYING FILES</p>
-              <p className={styles.loaderSubtext}>Please wait...</p>
+              <button
+                className={styles.addToQueueBtn}
+                onClick={handleAddPdfToQueue}
+                disabled={calculateCost() === 0}
+              >
+                <Plus size={18} strokeWidth={2.5} />
+                <span>ADD TO QUEUE</span>
+              </button>
             </div>
           </div>
-        )
-      }
-    </div >
+        </div>
+      )}
+
+      {/* ─── Image Print Settings Modal ─── */}
+      {showImageSettings && imageFiles.length > 0 && (
+        <ImagePrintSettings
+          images={imageUrls}
+          onClose={() => setShowImageSettings(false)}
+          onAddToQueue={handleAddImageToQueue}
+        />
+      )}
+
+      {/* ─── Verification Loader ─── */}
+      {verifying && (
+        <div className={styles.loaderOverlay}>
+          <div className={styles.loaderContent}>
+            <div className={styles.loaderSpinner}>
+              <div className={styles.spinnerRing} />
+              <div className={styles.spinnerRing} />
+              <div className={styles.spinnerRing} />
+            </div>
+            <p className={styles.loaderText}>VERIFYING FILES</p>
+            <p className={styles.loaderSubtext}>Please wait...</p>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

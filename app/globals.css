@@ -1,0 +1,67 @@
+/* ════════════════════════════════════════
+   GLOBAL STYLES — PRINTIT
+   Dark-first. Respects data-theme="light"
+   ════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Space+Mono:wght@400;700&display=swap');
+
+/* ── Reset & base ── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    height: 100%;
+    background: #0a0a0a;
+}
+
+body {
+    min-height: 100%;
+    min-height: 100dvh;
+    margin: 0;
+    background: #0a0a0a;
+    color: #ffffff;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background 0.25s, color 0.25s;
+}
+
+/* ── Light mode overrides ── */
+body[data-theme="light"] {
+    background: #f4f4f4;
+    color: #0a0a0a;
+}
+
+/* Ensure the Next.js root element also covers full height */
+#__next,
+[data-nextjs-scroll-focus-boundary] {
+    min-height: 100dvh;
+    background: inherit;
+}
+
+/* ── Global scrollbar styling ── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+body[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* ── Utility: no-scroll ── */
+.no-scroll {
+    overflow: hidden;
+}

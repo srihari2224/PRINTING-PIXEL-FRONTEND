@@ -1,23 +1,227 @@
 "use client"
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import UploadPage from './[slug]/components/UploadPage'
+import ReviewPage from './[slug]/components/ReviewPage'
+import OTPPage from './[slug]/components/OTPPage'
+import { generateInvoicePDF } from './[slug]/utils/generateInvoicePDF'
 
-export default function Home() {
-  const router = useRouter()
+interface UploadResult {
+  uploadId: string
+  totalPages: number
+  files: Array<{ originalName: string; pageCount: number; printOptions: any }>
+  kioskId?: string
+}
 
+/* ── Inner component (needs useSearchParams inside Suspense) ── */
+function KioskApp() {
+  const searchParams = useSearchParams()
+  const slug = searchParams.get('kiosk_id') || ''
+
+  // ── Theme ──
+  const [isDark, setIsDark] = useState(true)
   useEffect(() => {
-    // Redirect to map page
-    router.push('/map')
-  }, [router])
+    const saved = localStorage.getItem('pp-theme')
+    const dark = saved !== 'light'
+    setIsDark(dark)
+    document.body.setAttribute('data-theme', dark ? 'dark' : 'light')
+    // ── Warm up the backend on page load to prevent cold-start delay ──
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/health`).catch(() => { })
+  }, [])
+  const toggleTheme = () => {
+    const next = !isDark
+    setIsDark(next)
+    localStorage.setItem('pp-theme', next ? 'dark' : 'light')
+    document.body.setAttribute('data-theme', next ? 'dark' : 'light')
+  }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <div className="text-center">
-        <div className="text-6xl mb-4">🖨️</div>
-        <h1 className="text-2xl font-bold text-white mb-2">Qwikprint</h1>
-        <p className="text-gray-400">Loading kiosk map...</p>
+  // ── App state ──
+  const [step, setStep] = useState<'upload' | 'review' | 'otp'>('upload')
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
+  const [savedQueue, setSavedQueue] = useState<any[]>([])
+  const [savedFiles, setSavedFiles] = useState<File[]>([])
+  const [savedImageFiles, setSavedImageFiles] = useState<File[]>([])
+  const [otp, setOtp] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  // ── No kiosk_id: show a helpful landing ──
+  if (!slug) {
+    return (
+      <div style={{
+        minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: isDark ? '#0a0a0a' : '#f4f4f4',
+        color: isDark ? '#fff' : '#000',
+        fontFamily: 'Inter, sans-serif', textAlign: 'center', padding: '2rem',
+      }}>
+        <div style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+          PRINTIT
+        </div>
+        <p style={{ color: isDark ? '#aaa' : '#666', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+          Self-Service Printing Kiosk
+        </p>
+        <p style={{ fontSize: '0.8rem', color: isDark ? '#555' : '#999' }}>
+          Please scan the QR code at your kiosk or visit the kiosk URL directly.
+        </p>
       </div>
-    </div>
+    )
+  }
+
+  // ── Handlers ──
+  const handleUploadComplete = (data: UploadResult & { _queue?: any[]; _files?: File[]; _imageFiles?: File[] }) => {
+    if (data._queue) setSavedQueue(data._queue)
+    if (data._files) setSavedFiles(data._files)
+    if (data._imageFiles) setSavedImageFiles(data._imageFiles)
+    setUploadResult(data)
+    setStep('review')
+  }
+
+  const handleBackToUpload = () => {
+    setStep('upload')
+    setUploadResult(null)
+    setError('')
+  }
+
+  const loadRazorpay = () =>
+    new Promise((resolve, reject) => {
+      if ((window as any).Razorpay) return resolve(true)
+      const s = document.createElement('script')
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      s.onload = () => resolve(true)
+      s.onerror = () => reject(false)
+      document.body.appendChild(s)
+    })
+
+  const handleProceedToPayment = async (totalAmount: number) => {
+    if (!uploadResult) return
+    setLoading(true); setError('')
+    try {
+      const { uploadId, kioskId } = uploadResult
+      const amountInPaise = Math.round(totalAmount * 100)
+
+      const orderResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payment/create-order`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: amountInPaise, currency: 'INR',
+            receipt: `print_${Date.now()}`,
+            notes: { uploadId, kioskId },
+          }),
+        }
+      )
+      if (!orderResponse.ok) throw new Error('Failed to create order')
+      const orderData = await orderResponse.json()
+      await loadRazorpay()
+
+      const options: any = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        order_id: orderData.id,
+        name: 'PRINTIT Kiosk',
+        description: `Print Job — ${kioskId}`,
+        handler: async (response: any) => {
+          try {
+            const phone = response.contact || ''
+            const verifyRes = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/api/upload/${uploadId}/confirm-payment`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  amount: amountInPaise, currency: 'INR',
+                  customerEmail: response.email || '',
+                  customerPhone: phone,
+                  paymentMethod: response.method || 'unknown',
+                }),
+              }
+            )
+            if (!verifyRes.ok) throw new Error('Payment verification failed')
+            const verifyData = await verifyRes.json()
+            if (verifyData?.otp) {
+              setOtp(verifyData.otp)
+              setStep('otp')
+              try {
+                await generateInvoicePDF({
+                  otp: verifyData.otp,
+                  kioskId: uploadResult.kioskId || slug,
+                  queue: savedQueue,
+                  totalAmount,
+                  customerPhone: phone,
+                })
+              } catch (e) { console.error('Invoice error:', e) }
+            } else {
+              setError('Payment verified but OTP not received')
+            }
+          } catch (err: any) {
+            setError(err?.message || 'Payment verification failed')
+          } finally { setLoading(false) }
+        },
+        prefill: { name: 'Customer', email: '', contact: '' },
+        theme: { color: '#000000ff' },
+        modal: { ondismiss: () => setLoading(false) },
+      }
+      const rzp = new (window as any).Razorpay(options)
+      rzp.on('payment.failed', (r: any) => {
+        setError(`Payment failed: ${r.error.description || 'Unknown error'}`)
+        setLoading(false)
+      })
+      rzp.open()
+    } catch (err: any) {
+      setError(err?.message || 'Payment failed')
+      setLoading(false)
+    }
+  }
+
+  const handleNewPrint = () => {
+    setStep('upload'); setUploadResult(null); setOtp(null); setError('')
+    setSavedQueue([]); setSavedFiles([]); setSavedImageFiles([])
+  }
+
+  // ── Render ──
+  if (step === 'otp' && otp) {
+    return <OTPPage otp={otp} onNewPrint={handleNewPrint} isDark={isDark} />
+  }
+  if (step === 'review' && uploadResult) {
+    return (
+      <ReviewPage
+        uploadResult={uploadResult}
+        kioskId={uploadResult.kioskId || ''}
+        onBack={handleBackToUpload}
+        onProceedToPayment={handleProceedToPayment}
+        isDark={isDark}
+      />
+    )
+  }
+  return (
+    <UploadPage
+      slug={slug}
+      onUploadComplete={handleUploadComplete}
+      initialQueue={savedQueue}
+      initialFiles={savedFiles}
+      initialImageFiles={savedImageFiles}
+      isDark={isDark}
+      onThemeToggle={toggleTheme}
+    />
+  )
+}
+
+/* ── Root export (Suspense required for useSearchParams) ── */
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100dvh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: '#555', fontFamily: 'Inter,sans-serif', fontSize: '0.85rem' }}>Loading…</span>
+      </div>
+    }>
+      <KioskApp />
+    </Suspense>
   )
 }

@@ -26,8 +26,8 @@
   margin: 0 0 0.5rem 0;
 }
 
-.logoGreen {
-  color: #4caf50;
+.logoAccent {
+  color: #ff6b47;
 }
 
 .logoBlack {
@@ -59,7 +59,7 @@
 
 .searchInput:focus {
   outline: none;
-  border-color: #4caf50;
+  border-color: #ff6b47;
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -69,11 +69,13 @@
 
 .searchIcon {
   position: absolute;
-  right: 2.5rem;
+  right: 2rem;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 1.2rem;
+  color: #666666;
   pointer-events: none;
+  display: flex;
+  align-items: center;
 }
 
 .stats {
@@ -91,7 +93,7 @@
 .statValue {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #4caf50;
+  color: #ff6b47;
   margin-bottom: 0.25rem;
 }
 
@@ -134,13 +136,13 @@
 .kioskCard:hover,
 .kioskCard.hovered {
   background: rgba(255, 255, 255, 0.08);
-  border-color: #4caf50;
+  border-color: #ff6b47;
   transform: translateX(4px);
 }
 
 .kioskCard.selected {
   background: rgba(76, 175, 80, 0.15);
-  border-color: #4caf50;
+  border-color: #ff6b47;
 }
 
 .kioskCardHeader {
@@ -197,10 +199,10 @@
 .visitButton {
   width: 100%;
   background: rgba(76, 175, 80, 0.2);
-  border: 1px solid #4caf50;
+  border: 1px solid #ff6b47;
   border-radius: 6px;
   padding: 0.6rem 1rem;
-  color: #4caf50;
+  color: #ff6b47;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -208,7 +210,7 @@
 }
 
 .visitButton:hover {
-  background: #4caf50;
+  background: #ff6b47;
   color: #ffffff;
 }
 
@@ -259,7 +261,7 @@
 
 .infoButton {
   width: 100%;
-  background: #4caf50;
+  background: #ff6b47;
   border: none;
   border-radius: 6px;
   padding: 0.6rem 1rem;
