@@ -20,7 +20,7 @@ export default function OTPPage({ otp, onNewPrint, isDark = true }: OTPPageProps
   }
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${isDark ? styles.dark : styles.light}`}>
       {/* Grid lines decoration */}
       <div className={styles.gridLines} aria-hidden="true">
         <span /><span /><span /><span />

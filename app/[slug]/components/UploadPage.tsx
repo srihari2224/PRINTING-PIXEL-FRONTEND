@@ -12,9 +12,16 @@ import {
   Upload,
   ChevronRight,
   Layers,
+  HelpCircle,
 } from "lucide-react"
 import ImagePrintSettings from "./ImagePrintSettings"
+import PaperShop from "./PaperShop"
+import HelpPage from "./HelpPage"
+import PolicyPage from "./PolicyPage"
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google"
 import styles from "./UploadPage.module.css"
+
+const GOOGLE_CLIENT_ID = "71594743056-rd5v1od8fej9run4rnmn4r5gdq62sqgt.apps.googleusercontent.com"
 
 interface QueueItem {
   id: number
@@ -47,6 +54,7 @@ interface UploadPageProps {
   initialImageFiles?: File[]
   isDark?: boolean
   onThemeToggle?: () => void
+  onShopPaymentSuccess?: (otp: string, queue: any[]) => void
 }
 
 declare global {
@@ -55,7 +63,7 @@ declare global {
   }
 }
 
-export default function UploadPage({ slug, onUploadComplete, initialQueue, initialFiles, initialImageFiles, isDark = true, onThemeToggle }: UploadPageProps) {
+export default function UploadPage({ slug, onUploadComplete, initialQueue, initialFiles, initialImageFiles, isDark = true, onThemeToggle, onShopPaymentSuccess }: UploadPageProps) {
   const [files, setFiles] = useState<File[]>(initialFiles || [])
   const [imageFiles, setImageFiles] = useState<File[]>(initialImageFiles || [])
   const [printQueue, setPrintQueue] = useState<QueueItem[]>(initialQueue || [])
@@ -68,6 +76,30 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState("")
   const [pdfThumbnails, setPdfThumbnails] = useState<{ [key: string]: string }>({})
+  const [showShop, setShowShop] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const [showPolicy, setShowPolicy] = useState<"terms" | "privacy" | "refund" | null>(null)
+  const [adminUser, setAdminUser] = useState<{ name: string; picture: string; email: string } | null>(null)
+  const [paperLevel, setPaperLevel] = useState(145)
+  const paperMax = 250
+
+  // Persist admin sign-in across visits
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`admin-user-${slug}`)
+      if (saved) setAdminUser(JSON.parse(saved))
+    } catch { }
+  }, [slug])
+
+  const handleAdminSignIn = (payload: { name: string; picture: string; email: string }) => {
+    setAdminUser(payload)
+    try { localStorage.setItem(`admin-user-${slug}`, JSON.stringify(payload)) } catch { }
+  }
+
+  const handleAdminSignOut = () => {
+    setAdminUser(null)
+    try { localStorage.removeItem(`admin-user-${slug}`) } catch { }
+  }
 
   const [settings, setSettings] = useState({
     copies: 1,
@@ -408,14 +440,29 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
               <div className={styles.emptyLogo}>
                 <span className={styles.logoMark}>PRINTIT</span>
               </div>
-              {onThemeToggle && (
-                <button className={styles.themeToggleBtn} onClick={onThemeToggle} aria-label="Toggle theme">
-                  {isDark
-                    ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
-                    : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-                  }
+
+              {/* Right side: Theme toggle + Help only */}
+              <div className={styles.headerRight}>
+                {/* Theme toggle */}
+                {onThemeToggle && (
+                  <button className={styles.themeToggleBtn} onClick={onThemeToggle} aria-label="Toggle theme">
+                    {isDark
+                      ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+                      : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+                    }
+                  </button>
+                )}
+
+                {/* Help / ? button */}
+                <button
+                  className={styles.helpBtn}
+                  onClick={() => setShowHelp(true)}
+                  aria-label="Help & Support"
+                  title="Help & Support"
+                >
+                  <HelpCircle size={18} strokeWidth={2} />
                 </button>
-              )}
+              </div>
             </div>
 
             {/* ── Hero ── */}
@@ -449,13 +496,115 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
                 <span>SELECT FILES</span>
               </label>
 
+              {/* Paper Shop button */}
+              <button
+                className={styles.shopButton}
+                onClick={() => setShowShop(true)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
+                <span>PAPER SHOP</span>
+              </button>
+
               <p className={styles.ctaHint}>PDF and image files supported · Max 50 MB</p>
             </div>
 
+
             {/* ── Footer ── */}
             <div className={styles.emptyFooter}>
-              <span>Powered by</span>
-              <span className={styles.footerBrand}>INNVERA</span>
+              <div className={styles.footerTop}>
+                <span>Powered by</span>
+                <span className={styles.footerBrand}>INNVERA</span>
+              </div>
+            </div>
+
+            {/* ── Admin Card (below footer, separated clearly) ── */}
+            <div className={styles.adminCardOuter}>
+              <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+                {adminUser ? (
+                  <div className={styles.adminCardFull}>
+                    {/* Header row */}
+                    <div className={styles.adminCardTopRow}>
+                      <img src={adminUser.picture} alt={adminUser.name} className={styles.adminAvatarLg} />
+                      <div className={styles.adminUserMeta}>
+                        <div className={styles.adminUserName}>{adminUser.name}</div>
+                        <div className={styles.adminUserTag}>Admin · {slug}</div>
+                      </div>
+                      <button className={styles.adminSignOutBtn} onClick={handleAdminSignOut}>Sign out</button>
+                    </div>
+
+                    {/* Paper level gauge */}
+                    <div className={styles.paperWidget}>
+                      <div className={styles.paperWidgetHeader}>
+                        <span className={styles.paperWidgetLabel}>Paper Level</span>
+                        <span className={styles.paperWidgetValue}>{paperLevel} / {paperMax} sheets</span>
+                      </div>
+                      <div className={styles.paperTrack}>
+                        <div
+                          className={styles.paperFill}
+                          style={{
+                            width: `${(paperLevel / paperMax) * 100}%`,
+                            background: paperLevel < 50 ? '#ef4444' : paperLevel < 100 ? '#f59e0b' : '#22c55e'
+                          }}
+                        />
+                      </div>
+                      <div className={styles.paperSubtext}>
+                        {paperLevel < 50 ? '⚠ Low — refill soon' : paperLevel < 100 ? '· Moderate' : '· Good'}
+                      </div>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className={styles.adminActions}>
+                      <button className={styles.adminResetBtn} onClick={() => setPaperLevel(paperMax)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.44-4.04"/></svg>
+                        Reset Paper
+                      </button>
+                      <a href="https://last-and-final.vercel.app/" target="_blank" rel="noopener noreferrer" className={styles.adminDashBtn}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        Revenue Dashboard
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.adminCardFull}>
+                    <div className={styles.adminCardLabel}>ADMIN ACCESS</div>
+                    <h2 className={styles.adminCardTitle}>
+                      Kiosk Owner<br />or Servicer?
+                    </h2>
+                    <p className={styles.adminCardDesc}>
+                      Sign in with your Google account to access the kiosk admin panel, monitor print jobs, and manage your fleet.
+                    </p>
+
+                    <div className={styles.adminCardRow}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.45">
+                        <rect x="3" y="11" width="18" height="11" rx="1"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                      </svg>
+                      <span className={styles.adminCardRowText}>SIGN IN FOR ADMIN ACCESS</span>
+                    </div>
+
+                    <div className={styles.adminGoogleBtnWrap}>
+                      <GoogleLogin
+                        onSuccess={(credentialResponse) => {
+                          try {
+                            const base64Url = credentialResponse.credential?.split('.')[1] || ''
+                            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+                            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
+                            const payload = JSON.parse(jsonPayload)
+                            handleAdminSignIn({ name: payload.name, picture: payload.picture, email: payload.email })
+                          } catch (e) { console.error('Google auth error', e) }
+                        }}
+                        onError={() => console.log('Google Sign-In failed')}
+                        size="large"
+                        shape="rectangular"
+                        theme={isDark ? 'filled_black' : 'outline'}
+                        text="signin_with"
+                        logo_alignment="left"
+                        width={300}
+                      />
+                    </div>
+                    <p className={styles.adminCardNote}>For kiosk owners &amp; service technicians only</p>
+                  </div>
+                )}
+              </GoogleOAuthProvider>
             </div>
           </div>
         ) : (
@@ -861,6 +1010,36 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
             <p className={styles.loaderSubtext}>Please wait...</p>
           </div>
         </div>
+      )}
+      {/* ─── Paper Shop Modal ─── */}
+      {showShop && (
+        <PaperShop
+          kioskId={slug}
+          isDark={isDark}
+          onClose={() => setShowShop(false)}
+          onPaymentSuccess={(otp, queue) => {
+            setShowShop(false)
+            onShopPaymentSuccess?.(otp, queue)
+          }}
+        />
+      )}
+
+      {/* ─── Help / Support Page ─── */}
+      {showHelp && (
+        <HelpPage
+          kioskId={slug}
+          isDark={isDark}
+          onClose={() => setShowHelp(false)}
+        />
+      )}
+
+      {/* ─── Policy Overlays ─── */}
+      {showPolicy && (
+        <PolicyPage
+          type={showPolicy}
+          isDark={isDark}
+          onClose={() => setShowPolicy(null)}
+        />
       )}
     </div>
   )

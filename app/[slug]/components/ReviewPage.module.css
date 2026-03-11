@@ -5,14 +5,72 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Space+Mono:wght@400;700&display=swap');
 
+/* ── Theme tokens ── */
+.container.dark {
+  --bg: #0a0a0a;
+  --bg2: #111111;
+  --bg3: #1a1a1a;
+  --fg: #ffffff;
+  --fg2: #aaaaaa;
+  --fg3: rgba(255, 255, 255, 0.35);
+  --fg4: rgba(255, 255, 255, 0.4);
+  --accent: #ff6b47;
+  --accent-bg: rgba(255, 107, 71, 0.1);
+  --accent-border: rgba(255, 107, 71, 0.2);
+  --accent-btn-border: rgba(255, 107, 71, 0.4);
+  --border: rgba(255, 255, 255, 0.07);
+  --border2: rgba(255, 255, 255, 0.08);
+  --header-bg: #111111;
+  --card-bg: #1a1a1a;
+  --grand-total-bg: rgba(255, 107, 71, 0.05);
+  --footer-bg: #111111;
+  --footer-border: rgba(255, 255, 255, 0.08);
+  --btn-proceed-bg: #ff6b47;
+  --badge-bg: rgba(255, 255, 255, 0.06);
+  --badge-border: rgba(255, 255, 255, 0.1);
+  --badge-fg: rgba(255, 255, 255, 0.6);
+  --bill-header-color: rgba(255, 255, 255, 0.4);
+  --bill-row-fg: rgba(255, 255, 255, 0.35);
+  --kiosk-sub: rgba(255, 255, 255, 0.35);
+}
+
+.container.light {
+  --bg: #f8f8f8;
+  --bg2: #f0f0f0;
+  --bg3: #ffffff;
+  --fg: #0a0a0a;
+  --fg2: #444444;
+  --fg3: rgba(0, 0, 0, 0.4);
+  --fg4: rgba(0, 0, 0, 0.45);
+  --accent: #ff6b47;
+  --accent-bg: rgba(255, 107, 71, 0.08);
+  --accent-border: rgba(255, 107, 71, 0.25);
+  --accent-btn-border: rgba(255, 107, 71, 0.5);
+  --border: rgba(0, 0, 0, 0.07);
+  --border2: rgba(0, 0, 0, 0.09);
+  --header-bg: #ffffff;
+  --card-bg: #ffffff;
+  --grand-total-bg: rgba(255, 107, 71, 0.04);
+  --footer-bg: #ffffff;
+  --footer-border: rgba(0, 0, 0, 0.09);
+  --btn-proceed-bg: #ff6b47;
+  --badge-bg: rgba(0, 0, 0, 0.04);
+  --badge-border: rgba(0, 0, 0, 0.09);
+  --badge-fg: rgba(0, 0, 0, 0.55);
+  --bill-header-color: rgba(0, 0, 0, 0.4);
+  --bill-row-fg: rgba(0, 0, 0, 0.35);
+  --kiosk-sub: rgba(0, 0, 0, 0.35);
+}
+
 .container {
   min-height: 100vh;
   min-height: 100dvh;
-  background: #0a0a0a;
+  background: var(--bg, #0a0a0a);
   display: flex;
   flex-direction: column;
-  color: #ffffff;
+  color: var(--fg, #ffffff);
   font-family: 'Inter', -apple-system, sans-serif;
+  transition: background 0.25s, color 0.25s;
 }
 
 /* ─── Header ─── */
@@ -21,8 +79,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.25rem;
-  background: #111111;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--header-bg, #111111);
+  border-bottom: 1px solid var(--border2, rgba(255, 255, 255, 0.08));
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -36,9 +94,9 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border2, rgba(255, 255, 255, 0.15));
   cursor: pointer;
-  color: #ffffff;
+  color: var(--fg, #ffffff);
   border-radius: 0;
   transition: all 0.2s;
   padding: 0;
@@ -52,7 +110,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 3px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--fg4, rgba(255, 255, 255, 0.5));
   font-family: 'Space Mono', monospace;
   margin: 0;
 }
@@ -85,7 +143,7 @@
   align-items: baseline;
   gap: 0.6rem;
   margin-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
   padding-bottom: 0.6rem;
 }
 
@@ -101,7 +159,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--bill-header-color, rgba(255, 255, 255, 0.4));
   margin: 0;
   font-family: 'Space Mono', monospace;
   text-transform: uppercase;
@@ -110,12 +168,12 @@
 
 .editButton {
   background: transparent;
-  border: 1px solid rgba(255, 107, 71, 0.4);
+  border: 1px solid var(--accent-btn-border, rgba(255, 107, 71, 0.4));
   padding: 0.3rem 0.7rem;
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #ff6b47;
+  color: var(--accent, #ff6b47);
   cursor: pointer;
   font-family: 'Space Mono', monospace;
   transition: all 0.2s;
@@ -123,7 +181,7 @@
 }
 
 .editButton:active {
-  background: rgba(255, 107, 71, 0.1);
+  background: var(--accent-bg, rgba(255, 107, 71, 0.1));
 }
 
 /* ─── Files List ─── */
@@ -134,8 +192,8 @@
 }
 
 .fileCard {
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--card-bg, #1a1a1a);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.07));
   padding: 1rem;
   display: flex;
   gap: 0.85rem;
@@ -148,8 +206,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 107, 71, 0.1);
-  color: #ff6b47;
+  background: var(--accent-bg, rgba(255, 107, 71, 0.1));
+  color: var(--accent, #ff6b47);
   flex-shrink: 0;
   border-radius: 0;
 }
@@ -162,7 +220,7 @@
 .fileName {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--fg, #ffffff);
   margin-bottom: 0.2rem;
   font-family: 'Inter', sans-serif;
   overflow: hidden;
@@ -172,7 +230,7 @@
 
 .fileDetails {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--fg3, rgba(255, 255, 255, 0.35));
   margin-bottom: 0.5rem;
   font-family: 'Space Mono', monospace;
 }
@@ -188,11 +246,11 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.2rem 0.5rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--badge-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--badge-border, rgba(255, 255, 255, 0.1));
   font-size: 0.7rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--badge-fg, rgba(255, 255, 255, 0.6));
   font-family: 'Space Mono', monospace;
   border-radius: 0;
 }
@@ -200,7 +258,7 @@
 .filePrice {
   font-size: 1.1rem;
   font-weight: 900;
-  color: #ffffff;
+  color: var(--fg, #ffffff);
   font-family: 'Inter', sans-serif;
   flex-shrink: 0;
   letter-spacing: -0.03em;
@@ -208,8 +266,8 @@
 
 /* ─── Kiosk Card ─── */
 .kioskCard {
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--card-bg, #1a1a1a);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.07));
   padding: 1rem;
   display: flex;
   align-items: center;
@@ -222,8 +280,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 107, 71, 0.1);
-  color: #ff6b47;
+  background: var(--accent-bg, rgba(255, 107, 71, 0.1));
+  color: var(--accent, #ff6b47);
   flex-shrink: 0;
 }
 
@@ -234,7 +292,7 @@
 .kioskName {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--fg, #ffffff);
   margin-bottom: 0.2rem;
   font-family: 'Inter', sans-serif;
   display: flex;
@@ -257,14 +315,14 @@
 
 .kioskSub {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--kiosk-sub, rgba(255, 255, 255, 0.35));
   font-family: 'Space Mono', monospace;
 }
 
 /* ─── Summary / Bill ─── */
 .summaryCard {
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--card-bg, #1a1a1a);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.07));
   overflow: hidden;
 }
 
@@ -276,25 +334,25 @@
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--bill-header-color, rgba(255, 255, 255, 0.5));
 }
 
 .billHeader:active {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--border, rgba(255, 255, 255, 0.04));
 }
 
 .billHeader h3 {
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--bill-header-color, rgba(255, 255, 255, 0.4));
   margin: 0;
   font-family: 'Space Mono', monospace;
 }
 
 .billDetails {
   padding: 0 1rem 0.75rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.05));
   animation: slideDown 0.2s ease;
 }
 
@@ -315,14 +373,14 @@
   justify-content: space-between;
   padding: 0.5rem 0;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--bill-row-fg, rgba(255, 255, 255, 0.35));
   font-family: 'Inter', sans-serif;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.04));
 }
 
 .billRow span:last-child {
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--fg2, rgba(255, 255, 255, 0.7));
 }
 
 .freeTag {
@@ -335,19 +393,19 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: rgba(255, 107, 71, 0.05);
-  border-top: 1px solid rgba(255, 107, 71, 0.2);
+  background: var(--grand-total-bg, rgba(255, 107, 71, 0.05));
+  border-top: 1px solid var(--accent-border, rgba(255, 107, 71, 0.2));
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--bill-header-color, rgba(255, 255, 255, 0.5));
   font-family: 'Space Mono', monospace;
 }
 
 .grandTotalAmount {
   font-size: 1.6rem;
   font-weight: 900;
-  color: #ffffff;
+  color: var(--fg, #ffffff);
   font-family: 'Inter', sans-serif;
   letter-spacing: -0.04em;
 }
@@ -358,8 +416,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: #111111;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--footer-bg, #111111);
+  border-top: 1px solid var(--footer-border, rgba(255, 255, 255, 0.08));
   padding: 0.9rem 1.25rem;
   padding-bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
   display: flex;

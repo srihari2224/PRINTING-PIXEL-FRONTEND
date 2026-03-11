@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import UploadPage from './[slug]/components/UploadPage'
 import ReviewPage from './[slug]/components/ReviewPage'
 import OTPPage from './[slug]/components/OTPPage'
+import LandingPage from './components/LandingPage'
 import { generateInvoicePDF } from './[slug]/utils/generateInvoicePDF'
 
 interface UploadResult {
@@ -46,27 +47,9 @@ function KioskApp() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // ── No kiosk_id: show a helpful landing ──
+  // ── No kiosk_id: show the QR scanner landing page ──
   if (!slug) {
-    return (
-      <div style={{
-        minHeight: '100dvh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: isDark ? '#0a0a0a' : '#f4f4f4',
-        color: isDark ? '#fff' : '#000',
-        fontFamily: 'Inter, sans-serif', textAlign: 'center', padding: '2rem',
-      }}>
-        <div style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
-          PRINTIT
-        </div>
-        <p style={{ color: isDark ? '#aaa' : '#666', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          Self-Service Printing Kiosk
-        </p>
-        <p style={{ fontSize: '0.8rem', color: isDark ? '#555' : '#999' }}>
-          Please scan the QR code at your kiosk or visit the kiosk URL directly.
-        </p>
-      </div>
-    )
+    return <LandingPage />
   }
 
   // ── Handlers ──
@@ -185,6 +168,30 @@ function KioskApp() {
     setSavedQueue([]); setSavedFiles([]); setSavedImageFiles([])
   }
 
+  const handleShopPaymentSuccess = async (shopOtp: string, shopCart: any[]) => {
+    setOtp(shopOtp)
+    setStep('otp')
+    try {
+      const shopQueueForInvoice = shopCart.map((c: any, i: number) => ({
+        id: Date.now() + i,
+        fileName: c.name,
+        cost: c.qty * c.pricePerItem,
+        copies: c.qty,
+        type: 'pdf' as const,
+        timestamp: new Date().toLocaleTimeString(),
+        fileType: 'pdf',
+      }))
+      const shopTotal = shopCart.reduce((s: number, c: any) => s + c.qty * c.pricePerItem, 0)
+      await generateInvoicePDF({
+        otp: shopOtp,
+        kioskId: slug,
+        queue: shopQueueForInvoice,
+        totalAmount: shopTotal,
+        customerPhone: '',
+      })
+    } catch (e) { console.error('Shop invoice error:', e) }
+  }
+
   // ── Render ──
   if (step === 'otp' && otp) {
     return <OTPPage otp={otp} onNewPrint={handleNewPrint} isDark={isDark} />
@@ -209,6 +216,7 @@ function KioskApp() {
       initialImageFiles={savedImageFiles}
       isDark={isDark}
       onThemeToggle={toggleTheme}
+      onShopPaymentSuccess={handleShopPaymentSuccess}
     />
   )
 }

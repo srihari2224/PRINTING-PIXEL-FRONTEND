@@ -50,7 +50,7 @@ function calculatePrice(pages: number, colorMode: string, duplex: string, copies
   return totalPerCopy * copies
 }
 
-export default function ReviewPage({ uploadResult, kioskId, onBack, onProceedToPayment }: ReviewPageProps) {
+export default function ReviewPage({ uploadResult, kioskId, onBack, onProceedToPayment, isDark = true }: ReviewPageProps) {
   const [showBillDetails, setShowBillDetails] = useState(false)
 
   const calculateTotalAmount = () => {
@@ -69,7 +69,7 @@ export default function ReviewPage({ uploadResult, kioskId, onBack, onProceedToP
   const { total: totalAmount, totalPagesCount } = calculateTotalAmount()
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${isDark ? styles.dark : styles.light}`}>
 
       {/* Header */}
       <div className={styles.header}>
