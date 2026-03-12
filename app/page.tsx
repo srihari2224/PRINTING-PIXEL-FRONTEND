@@ -47,9 +47,8 @@ function KioskApp() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // ── No kiosk_id: show the QR scanner landing page ──
   if (!slug) {
-    return <LandingPage />
+    return <LandingPage isDark={isDark} onThemeToggle={toggleTheme} />
   }
 
   // ── Handlers ──
