@@ -75,6 +75,7 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
   const [loading, setLoading] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState("")
+  const [authError, setAuthError] = useState("")
   const [pdfThumbnails, setPdfThumbnails] = useState<{ [key: string]: string }>({})
   const [showShop, setShowShop] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -555,11 +556,11 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
                     {/* Buttons */}
                     <div className={styles.adminActions}>
                       <button className={styles.adminResetBtn} onClick={() => setPaperLevel(paperMax)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.44-4.04"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-.44-4.04" /></svg>
                         Reset Paper
                       </button>
-                      <a href="https://last-and-final.vercel.app/" target="_blank" rel="noopener noreferrer" className={styles.adminDashBtn}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                      <a href="https://innveraui.vercel.app/sign-in" target="_blank" rel="noopener noreferrer" className={styles.adminDashBtn}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
                         Revenue Dashboard
                       </a>
                     </div>
@@ -576,23 +577,54 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
 
                     <div className={styles.adminCardRow}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.45">
-                        <rect x="3" y="11" width="18" height="11" rx="1"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        <rect x="3" y="11" width="18" height="11" rx="1" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
                       </svg>
                       <span className={styles.adminCardRowText}>SIGN IN FOR ADMIN ACCESS</span>
                     </div>
 
+                    {authError && (
+                      <div style={{ color: "#ef4444", fontSize: "0.75rem", fontWeight: 600, marginBottom: "1rem", textAlign: "center", background: "rgba(239,68,68,0.1)", padding: "8px", borderRadius: "6px" }}>
+                        {authError}
+                      </div>
+                    )}
+
                     <div className={styles.adminGoogleBtnWrap}>
                       <GoogleLogin
-                        onSuccess={(credentialResponse) => {
+                        onSuccess={async (credentialResponse: any) => {
                           try {
+                            setAuthError("")
                             const base64Url = credentialResponse.credential?.split('.')[1] || ''
                             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
                             const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
                             const payload = JSON.parse(jsonPayload)
-                            handleAdminSignIn({ name: payload.name, picture: payload.picture, email: payload.email })
-                          } catch (e) { console.error('Google auth error', e) }
+                            const userEmail = payload.email
+
+                            // Master admin access
+                            if (userEmail === "msrihari2224@gmail.com") {
+                              handleAdminSignIn({ name: payload.name, picture: payload.picture, email: userEmail })
+                              return
+                            }
+
+                            // Fetch kiosk owner
+                            const kioskRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/kiosks/${slug}`)
+                            if (!kioskRes.ok) {
+                              setAuthError("Failed to verify kiosk owner.")
+                              return
+                            }
+                            const kioskData = await kioskRes.json()
+
+                            // Check against kiosk ownerEmail
+                            if (kioskData?.kiosk?.ownerEmail && kioskData.kiosk.ownerEmail.toLowerCase() === userEmail.toLowerCase()) {
+                              handleAdminSignIn({ name: payload.name, picture: payload.picture, email: userEmail })
+                            } else {
+                              setAuthError("Access Denied: You are not the registered owner of this kiosk.")
+                            }
+                          } catch (e) {
+                            console.error('Google auth error', e)
+                            setAuthError("Authentication error occurred.")
+                          }
                         }}
-                        onError={() => console.log('Google Sign-In failed')}
+                        onError={() => setAuthError('Google Sign-In failed')}
                         size="large"
                         shape="rectangular"
                         theme={isDark ? 'filled_black' : 'outline'}
