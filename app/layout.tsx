@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "PRINTIT — Self-Service Printing Kiosk",
   description: "Upload, configure, pay and print — all in under 2 minutes.",
   verification: {
-    google: "-DsIIiNB0oIFFyT1oBOrvfYDBrZlibTPCT5eP5lBtIE",
+    google: "Qt0kT2_TqzEGpxDQGsmb4YtfCbtHYESjFkpnt81ZmXU",
   },
 }
 

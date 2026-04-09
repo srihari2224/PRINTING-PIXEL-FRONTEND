@@ -694,12 +694,37 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
             }}>
               PRINTIT BY INNVERA
             </span>
-            <span style={{
-              fontFamily: "'Space Mono', monospace",
-              fontSize: "0.58rem", color: C.dim, letterSpacing: "0.08em",
-            }}>
-              &copy; {new Date().getFullYear()} Innvera Technologies Pvt. Ltd.
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+              <a href="/sign-in?role=admin"
+                style={{
+                  fontFamily: "'Space Mono', monospace",
+                  fontSize: "0.55rem", fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: C.muted,
+                  textDecoration: "none", transition: "color 0.2s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = C.accent}
+                onMouseLeave={e => e.currentTarget.style.color = C.muted}>
+                Admin
+              </a>
+              <span style={{ color: C.border, fontSize: "0.55rem" }}>|</span>
+              <a href="/sign-in?role=owner"
+                style={{
+                  fontFamily: "'Space Mono', monospace",
+                  fontSize: "0.55rem", fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: C.muted,
+                  textDecoration: "none", transition: "color 0.2s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = C.accent}
+                onMouseLeave={e => e.currentTarget.style.color = C.muted}>
+                Owner
+              </a>
+              <span style={{
+                fontFamily: "'Space Mono', monospace",
+                fontSize: "0.58rem", color: C.dim, letterSpacing: "0.08em",
+              }}>
+                &copy; {new Date().getFullYear()} Innvera Technologies Pvt. Ltd.
+              </span>
+            </div>
           </div>
         </footer>
 

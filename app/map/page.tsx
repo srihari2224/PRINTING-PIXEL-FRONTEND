@@ -51,15 +51,16 @@ const LIGHT_MAP_STYLES: google.maps.MapTypeStyle[] = [
 
 function loadGoogleMaps(apiKey: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if ((window as any).google?.maps) return resolve()
+    if ((window as any).google?.maps?.marker) return resolve()
     if (document.getElementById('gmap-script')) {
-      const poll = setInterval(() => { if ((window as any).google?.maps) { clearInterval(poll); resolve() } }, 100)
+      const poll = setInterval(() => { if ((window as any).google?.maps?.marker) { clearInterval(poll); resolve() } }, 100)
       return
     }
     const script = document.createElement('script')
     script.id = 'gmap-script'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`
-    script.async = true; script.defer = true
+    // loading=async required by Google; libraries=marker for AdvancedMarkerElement
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=marker`
+    script.async = true
     script.onload = () => resolve()
     script.onerror = () => reject(new Error('Google Maps failed to load'))
     document.head.appendChild(script)
@@ -103,8 +104,8 @@ export default function MapPage() {
 
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<google.maps.Marker[]>([])
-  const userMarkerRef = useRef<google.maps.Marker | null>(null)
+  const markersRef = useRef<any[]>([])
+  const userMarkerRef = useRef<any>(null)
   const stripRef = useRef<HTMLDivElement>(null)
 
   // Theme
@@ -144,6 +145,7 @@ export default function MapPage() {
         zoomControl: false,
         styles: isDark ? DARK_MAP_STYLES : LIGHT_MAP_STYLES,
         gestureHandling: 'greedy',
+        mapId: 'printvendo_kiosk_map',
       })
       mapInstance.current = map
       setMapReady(true)
@@ -152,11 +154,13 @@ export default function MapPage() {
 
   useEffect(() => {
     if (!mapInstance.current || !userLoc) return
-    userMarkerRef.current?.setMap(null)
-    userMarkerRef.current = new google.maps.Marker({
+    if (userMarkerRef.current) { userMarkerRef.current.map = null }
+    const el = document.createElement('div')
+    el.innerHTML = `<img src="${userMarkerSvg()}" width="24" height="24" style="display:block"/>`
+    userMarkerRef.current = new (google.maps as any).marker.AdvancedMarkerElement({
       position: userLoc,
       map: mapInstance.current,
-      icon: { url: userMarkerSvg(), scaledSize: new google.maps.Size(24, 24), anchor: new google.maps.Point(12, 12) },
+      content: el,
       zIndex: 1000,
       title: 'Your location',
     })
@@ -179,19 +183,17 @@ export default function MapPage() {
 
   const placeMarkers = useCallback(() => {
     if (!mapInstance.current) return
-    markersRef.current.forEach(m => m.setMap(null))
+    markersRef.current.forEach(m => { m.map = null })
     markersRef.current = []
     kiosks.forEach((kiosk, idx) => {
       const isActive = kiosk.status === 'ACTIVE'
-      const marker = new google.maps.Marker({
+      const el = document.createElement('div')
+      el.innerHTML = `<img src="${printerMarkerSvg(isActive)}" width="48" height="56" style="display:block;transform-origin:center bottom"/>`
+      const marker = new (google.maps as any).marker.AdvancedMarkerElement({
         position: { lat: kiosk.geo.lat, lng: kiosk.geo.lng },
         map: mapInstance.current!,
         title: kiosk.username,
-        icon: {
-          url: printerMarkerSvg(isActive),
-          scaledSize: new google.maps.Size(48, 56),
-          anchor: new google.maps.Point(24, 56),
-        },
+        content: el,
         zIndex: 10 + idx,
       })
       marker.addListener('click', () => {
