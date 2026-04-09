@@ -176,7 +176,6 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
     })
   }
 
-  /* ── file input handler ── */
   const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files || [])
     if (list.length === 0) return
@@ -184,18 +183,64 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
     setVerifying(true)
     setError("")
 
-    const pdfs = list.filter((f) => f.type.includes("pdf"))
-    const images = list.filter((f) => f.type.startsWith("image/"))
+    const incomingPdfs   = list.filter((f) => f.type === "application/pdf")
+    const incomingImages = list.filter((f) => f.type.startsWith("image/"))
 
-    if (pdfs.length === 0 && images.length === 0) {
-      setError("Please upload PDF or image files only.")
+    if (incomingPdfs.length === 0 && incomingImages.length === 0) {
+      setError("Please upload PDF or image files only (JPG, PNG, GIF, WebP).")
+      setVerifying(false)
+      return
+    }
+
+    // ── Enforce limits (cumulative with already-added files) ──────────────
+    const MAX_PDFS   = 10
+    const MAX_IMAGES = 20
+    const MAX_FILE_MB = 50
+
+    const currentPdfCount   = files.length
+    const currentImageCount = imageFiles.length
+
+    const sizeErrors: string[] = []
+    const validPdfs   = incomingPdfs.filter(f => {
+      if (f.size > MAX_FILE_MB * 1024 * 1024) { sizeErrors.push(`"${f.name}" exceeds ${MAX_FILE_MB} MB`); return false }
+      return true
+    })
+    const validImages = incomingImages.filter(f => {
+      if (f.size > MAX_FILE_MB * 1024 * 1024) { sizeErrors.push(`"${f.name}" exceeds ${MAX_FILE_MB} MB`); return false }
+      return true
+    })
+
+    if (sizeErrors.length) {
+      setError(`File too large: ${sizeErrors.join(", ")}. Max ${MAX_FILE_MB} MB per file.`)
+      setVerifying(false)
+      return
+    }
+
+    if (currentPdfCount + validPdfs.length > MAX_PDFS) {
+      const remaining = MAX_PDFS - currentPdfCount
+      setError(
+        remaining <= 0
+          ? `PDF limit reached. You can upload a maximum of ${MAX_PDFS} PDFs per session.`
+          : `Adding these PDFs would exceed the ${MAX_PDFS}-PDF limit. You can add ${remaining} more PDF${remaining === 1 ? "" : "s"}.`
+      )
+      setVerifying(false)
+      return
+    }
+
+    if (currentImageCount + validImages.length > MAX_IMAGES) {
+      const remaining = MAX_IMAGES - currentImageCount
+      setError(
+        remaining <= 0
+          ? `Image limit reached. You can upload a maximum of ${MAX_IMAGES} images per session.`
+          : `Adding these images would exceed the ${MAX_IMAGES}-image limit. You can add ${remaining} more image${remaining === 1 ? "" : "s"}.`
+      )
       setVerifying(false)
       return
     }
 
     const newCounts: { [key: string]: number } = {}
     await Promise.all(
-      pdfs.map(async (file) => {
+      validPdfs.map(async (file) => {
         const count = await getPDFPageCount(file)
         newCounts[file.name] = count
       })
@@ -205,18 +250,16 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
 
     setFiles((prev) => {
       const existing = prev.map((f) => f.name)
-      const newPdfs = pdfs.filter((f) => !existing.includes(f.name))
+      const newPdfs  = validPdfs.filter((f) => !existing.includes(f.name))
       return [...prev, ...newPdfs]
     })
     setImageFiles((prev) => {
       const existing = prev.map((f) => f.name)
-      const newImgs = images.filter((f) => !existing.includes(f.name))
+      const newImgs  = validImages.filter((f) => !existing.includes(f.name))
       return [...prev, ...newImgs]
     })
 
-    for (const file of pdfs) {
-      generatePdfThumbnail(file)
-    }
+    for (const file of validPdfs) generatePdfThumbnail(file)
 
     setVerifying(false)
     e.target.value = ""
@@ -506,7 +549,13 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
                 <span className={styles.pill}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>Kiosk-Ready</span>
               </div>
               <label className={styles.discoverButton}>
-                <input type="file" multiple accept=".pdf,image/*" onChange={handleFilesChange} className={styles.fileInput} />
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleFilesChange}
+                  className={styles.fileInput}
+                />
                 <Plus size={20} strokeWidth={2.5} />
                 <span>SELECT FILES</span>
               </label>
@@ -514,7 +563,7 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
                 <span>PAPER SHOP</span>
               </button>
-              <p className={styles.ctaHint}>PDF and image files supported · Max 50 MB</p>
+              <p className={styles.ctaHint}>Max 10 PDFs &amp; 20 images · Max 50 MB per file</p>
             </div>
 
             {/* ── Footer ── */}
@@ -616,7 +665,14 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
               </button>
               <span className={styles.topBarTitle}>FILES</span>
               <label className={styles.addMoreBtn}>
-                <input ref={addMoreRef} type="file" multiple accept=".pdf,image/*" onChange={handleFilesChange} className={styles.fileInput} />
+                <input
+                  ref={addMoreRef}
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleFilesChange}
+                  className={styles.fileInput}
+                />
                 <Plus size={16} strokeWidth={2.5} />
                 <span>Add Files</span>
               </label>
