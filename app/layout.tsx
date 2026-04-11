@@ -1,10 +1,17 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Space_Mono } from "next/font/google"
 import "./globals.css"
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+})
+
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
+  subsets: ["latin"],
+  weight: ["400", "700"],
   display: "swap",
 })
 
@@ -20,10 +27,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${spaceMono.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="preconnect" href="https://printing-pixel-1.onrender.com" />
+        <link rel="preconnect" href="https://kiosk-backend-t1mi.onrender.com" />
+        <link rel="dns-prefetch" href="https://printing-pixel-1.onrender.com" />
       </head>
       <body className="antialiased">
         {children}

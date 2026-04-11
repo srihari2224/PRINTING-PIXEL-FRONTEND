@@ -4,7 +4,7 @@
    ════════════════════════════════════════ */
 
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Space+Mono:wght@400;700&display=swap');
+/* Fonts are loaded via next/font in layout.tsx — no @import needed here */
 
 /* ── Reset & base ── */
 *,
@@ -24,7 +24,7 @@ body {
     margin: 0;
     background: #0a0a0a;
     color: #ffffff;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-inter, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background 0.25s, color 0.25s;

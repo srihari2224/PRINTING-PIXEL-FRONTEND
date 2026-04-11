@@ -40,7 +40,6 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,700;0,900;1,900&family=Space+Mono:wght@400;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
         body { overflow-x: hidden; }
