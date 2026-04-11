@@ -44,6 +44,14 @@ interface Kiosk {
     _id: string; amount: number; transactionId: string; proofImage?: string
     fromDate: string; toDate: string; status: string; createdAt: string
   }[]
+  pricing?: { colorRate: number; bwSingleRate: number; bwDuplexRate: number }
+  kioskVariant?: string
+  printer1?: string
+  printer2?: string
+  printer1Paper?: number
+  printer2Paper?: number
+  printer1Capacity?: number
+  printer2Capacity?: number
 }
 
 // ── Styled Input Component ─────────────────────────────────────────────────────
@@ -193,6 +201,23 @@ export default function RegisteredKiosks() {
   const [activeTab, setActiveTab] = useState<"info" | "analytics">("info")
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
+  // Pricing
+  const [editingPricing, setEditingPricing] = useState(false)
+  const [pricingForm, setPricingForm] = useState({ colorRate: "8", bwSingleRate: "2", bwDuplexRate: "3" })
+  const [pricingSaving, setPricingSaving] = useState(false)
+
+  // Printer config
+  const [editingPrinter, setEditingPrinter] = useState(false)
+  const [printerForm, setPrinterForm] = useState({ kioskVariant: "SX", printer1: "", printer2: "" })
+  const [printerSaving, setPrinterSaving] = useState(false)
+
+  // Paper
+  const [paperResetting, setPaperResetting] = useState<string | null>(null)
+
+  // OTA agent update
+  const [otaUpdating, setOtaUpdating] = useState(false)
+  const [otaDone, setOtaDone] = useState<string | null>(null)
+
   const isDark = typeof window !== "undefined" ? localStorage.getItem("pp-theme") !== "light" : true
   const bm = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)"
   const bs = isDark ? "rgba(255,255,255,0.13)" : "rgba(0,0,0,0.15)"
@@ -208,6 +233,18 @@ export default function RegisteredKiosks() {
       setShowSettlementForm(false)
       setSettlementForm({ amount: "", transactionId: "", fromDate: "", toDate: "", proofImage: "" })
       setActiveTab("info")
+      setPricingForm({
+        colorRate: String(selected.pricing?.colorRate ?? 8),
+        bwSingleRate: String(selected.pricing?.bwSingleRate ?? 2),
+        bwDuplexRate: String(selected.pricing?.bwDuplexRate ?? 3),
+      })
+      setEditingPricing(false)
+      setPrinterForm({
+        kioskVariant: selected.kioskVariant || "SX",
+        printer1: selected.printer1 || "",
+        printer2: selected.printer2 || "",
+      })
+      setEditingPrinter(false)
     }
   }, [selected])
 
@@ -253,6 +290,86 @@ export default function RegisteredKiosks() {
         setEditingBank(false)
       } else { alert("Failed: " + data.error) }
     } catch { alert("Network error") } finally { setBankSaving(false) }
+  }
+
+  const handleSavePricing = async () => {
+    if (!selected) return
+    setPricingSaving(true)
+    try {
+      const res = await fetch(`${KIOSK_BACKEND}/api/kiosk/${selected.kioskId}/pricing`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          colorRate:    Number(pricingForm.colorRate),
+          bwSingleRate: Number(pricingForm.bwSingleRate),
+          bwDuplexRate: Number(pricingForm.bwDuplexRate),
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSelected(p => p ? { ...p, pricing: data.pricing } : p)
+        setKiosks(p => p.map(k => k.kioskId === selected.kioskId ? { ...k, pricing: data.pricing } : k))
+        setEditingPricing(false)
+      } else { alert("Failed: " + data.error) }
+    } catch { alert("Network error") } finally { setPricingSaving(false) }
+  }
+
+  const handleSavePrinter = async () => {
+    if (!selected) return
+    setPrinterSaving(true)
+    try {
+      const res = await fetch(`${KIOSK_BACKEND}/api/kiosk/${selected.kioskId}/printer-config`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(printerForm)
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSelected(p => p ? { ...p, kioskVariant: data.kioskVariant, printer1: data.printer1, printer2: data.printer2 } : p)
+        setKiosks(p => p.map(k => k.kioskId === selected.kioskId ? { ...k, kioskVariant: data.kioskVariant, printer1: data.printer1, printer2: data.printer2 } : k))
+        setEditingPrinter(false)
+      } else { alert("Failed: " + data.error) }
+    } catch { alert("Network error") } finally { setPrinterSaving(false) }
+  }
+
+  const handleResetPaper = async (printer: "printer1" | "printer2" | "all") => {
+    if (!selected) return
+    setPaperResetting(printer)
+    try {
+      const res = await fetch(`${KIOSK_BACKEND}/api/kiosk/${selected.kioskId}/paper/reset`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ printer })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSelected(p => p ? { ...p, printer1Paper: data.printer1Paper, printer2Paper: data.printer2Paper } : p)
+        setKiosks(p => p.map(k => k.kioskId === selected.kioskId ? { ...k, printer1Paper: data.printer1Paper, printer2Paper: data.printer2Paper } : k))
+      } else { alert("Failed: " + data.error) }
+    } catch { alert("Network error") } finally { setPaperResetting(null) }
+  }
+
+  const handleOtaUpdate = async () => {
+    if (!selected) return
+    if (!confirm(`Push OTA update to ${selected.kioskId}?\n\nThe agent will:\n1. git pull (latest code)\n2. npm install\n3. pm2 restart\n\nMake sure you have pushed your changes to git first.`)) return
+    setOtaUpdating(true)
+    setOtaDone(null)
+    try {
+      const res = await fetch(`${FILE_UPLOADER_API}/api/agents/${selected.kioskId}/update`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: "latest" })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setOtaDone("sent")
+        setTimeout(() => setOtaDone(null), 4000)
+      } else {
+        setOtaDone("error")
+        alert("OTA failed: " + (data.error || "Agent may be offline"))
+        setTimeout(() => setOtaDone(null), 3000)
+      }
+    } catch {
+      setOtaDone("error")
+      alert("Network error — could not reach backend")
+      setTimeout(() => setOtaDone(null), 3000)
+    } finally { setOtaUpdating(false) }
   }
 
   useEffect(() => {
@@ -431,6 +548,32 @@ export default function RegisteredKiosks() {
                       </button>
                     ))}
                   </div>
+
+                  {/* OTA Update Agent button */}
+                  <button
+                    onClick={handleOtaUpdate}
+                    disabled={otaUpdating}
+                    title="Push latest code to this kiosk agent (git pull + npm install + pm2 restart)"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "7px 14px",
+                      border: `1px solid ${otaDone === "sent" ? C.green : otaDone === "error" ? C.red : "rgba(255,255,255,0.2)"}`,
+                      background: otaDone === "sent" ? C.greenDim : otaDone === "error" ? C.redDim : "transparent",
+                      color: otaDone === "sent" ? C.green : otaDone === "error" ? C.red : lc,
+                      cursor: otaUpdating ? "not-allowed" : "pointer",
+                      fontFamily: "'Space Mono',monospace", fontSize: "0.48rem", fontWeight: 700,
+                      textTransform: "uppercase", letterSpacing: "0.1em",
+                      opacity: otaUpdating ? 0.5 : 1, transition: "all 0.2s", marginRight: 4,
+                    }}
+                  >
+                    {/* Upload/arrow icon */}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
+                      <polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" />
+                      <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
+                    </svg>
+                    {otaUpdating ? "Sending..." : otaDone === "sent" ? "Sent ✓" : otaDone === "error" ? "Failed" : "Update Agent"}
+                  </button>
+
                   <button onClick={() => setSelected(null)} className="rk-icon-btn" style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${bm}`, background: "transparent", cursor: "pointer", color: lc, transition: "all 0.2s" }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
                       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -663,12 +806,205 @@ export default function RegisteredKiosks() {
                       </section>
                     </div>
 
-                    {/* RIGHT — Transactions */}
+                    {/* RIGHT — Transactions + Pricing + Printer Config + Paper */}
                     <div style={{ padding: 24, overflowY: "auto", borderLeft: `1px solid ${bm}`, display: "flex", flexDirection: "column", gap: 24 }}>
+
+                      {/* ── Recent Transactions ── */}
                       <section>
                         <SectionHeader label="Recent Transactions" color={C.orange} />
                         <KioskTransactions kioskId={selected.kioskId} isDark={isDark} bm={bm} lc={lc} tc={tc} sub={sub} onInvoicePdf={setInvoicePdfUrl} />
                       </section>
+
+                      {/* ── Pricing ── */}
+                      <section>
+                        <SectionHeader label="Pricing (₹ per page)" color={C.orange}>
+                          {!editingPricing ? (
+                            <button
+                              onClick={() => setEditingPricing(true)}
+                              style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.orange, background: "none", border: "none", cursor: "pointer" }}
+                            >Edit</button>
+                          ) : (
+                            <div style={{ display: "flex", gap: 12 }}>
+                              <button onClick={() => setEditingPricing(false)} style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: lc, background: "none", border: "none", cursor: "pointer" }}>Cancel</button>
+                              <button onClick={handleSavePricing} disabled={pricingSaving} style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.green, background: "none", border: "none", cursor: "pointer" }}>{pricingSaving ? "Saving..." : "Save"}</button>
+                            </div>
+                          )}
+                        </SectionHeader>
+
+                        {editingPricing ? (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                            <StyledInput label="Color / page" type="number" value={pricingForm.colorRate}
+                              onChange={v => setPricingForm({ ...pricingForm, colorRate: v })} hint="Default ₹8" />
+                            <StyledInput label="B&W Single" type="number" value={pricingForm.bwSingleRate}
+                              onChange={v => setPricingForm({ ...pricingForm, bwSingleRate: v })} hint="Default ₹2" />
+                            <StyledInput label="B&W Double" type="number" value={pricingForm.bwDuplexRate}
+                              onChange={v => setPricingForm({ ...pricingForm, bwDuplexRate: v })} hint="Default ₹3" />
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: bm }}>
+                            {([
+                              ["Color / page", `₹${selected.pricing?.colorRate ?? 8}`],
+                              ["B&W Single",   `₹${selected.pricing?.bwSingleRate ?? 2}`],
+                              ["B&W Double",   `₹${selected.pricing?.bwDuplexRate ?? 3}`],
+                            ] as [string, string][]).map(([l, v]) => (
+                              <div key={l} style={{ padding: "12px 14px", background: surf, display: "flex", flexDirection: "column", gap: 5 }}>
+                                <span style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.45rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: lc }}>{l}</span>
+                                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: C.orange, letterSpacing: "-0.02em" }}>{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+
+                      {/* ── Printer Config ── */}
+                      <section>
+                        <SectionHeader label="Printer Config" color={C.blue}>
+                          {!editingPrinter ? (
+                            <button
+                              onClick={() => setEditingPrinter(true)}
+                              style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, background: "none", border: "none", cursor: "pointer" }}
+                            >Edit</button>
+                          ) : (
+                            <div style={{ display: "flex", gap: 12 }}>
+                              <button onClick={() => setEditingPrinter(false)} style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: lc, background: "none", border: "none", cursor: "pointer" }}>Cancel</button>
+                              <button onClick={handleSavePrinter} disabled={printerSaving} style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.green, background: "none", border: "none", cursor: "pointer" }}>{printerSaving ? "Saving..." : "Save"}</button>
+                            </div>
+                          )}
+                        </SectionHeader>
+
+                        {editingPrinter ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {/* SX / DX toggle */}
+                            <div style={{ display: "flex", border: `1px solid ${bm}`, alignSelf: "flex-start", marginBottom: 4 }}>
+                              {(["SX", "DX"] as const).map(v => (
+                                <button
+                                  key={v}
+                                  onClick={() => setPrinterForm({ ...printerForm, kioskVariant: v })}
+                                  style={{
+                                    padding: "8px 24px",
+                                    background: printerForm.kioskVariant === v ? C.blue : "transparent",
+                                    color: printerForm.kioskVariant === v ? "#fff" : lc,
+                                    border: "none", cursor: "pointer",
+                                    fontFamily: "'Space Mono',monospace", fontSize: "0.55rem", fontWeight: 700,
+                                    textTransform: "uppercase", letterSpacing: "0.12em", transition: "all 0.2s",
+                                  }}
+                                >{v}</button>
+                              ))}
+                            </div>
+                            <StyledInput
+                              label="Printer 1 (Color / Primary)"
+                              value={printerForm.printer1}
+                              onChange={v => setPrinterForm({ ...printerForm, printer1: v })}
+                              hint="Exact OS printer name — e.g. HP_Color_LaserJet"
+                            />
+                            <StyledInput
+                              label={printerForm.kioskVariant === "SX" ? "Printer 2 (N/A — SX mode)" : "Printer 2 (B&W — DX mode)"}
+                              value={printerForm.kioskVariant === "SX" ? "" : printerForm.printer2}
+                              onChange={v => setPrinterForm({ ...printerForm, printer2: v })}
+                              hint={printerForm.kioskVariant === "SX" ? "Not used in SX mode" : "B&W printer name"}
+                              readOnly={printerForm.kioskVariant === "SX"}
+                            />
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: bm }}>
+                            {([
+                              ["Variant",   selected.kioskVariant || "SX"],
+                              ["Printer 1",  selected.printer1  || "— not set —"],
+                              ["Printer 2",  (selected.kioskVariant || "SX") === "SX" ? "N/A (SX)" : (selected.printer2 || "— not set —")],
+                            ] as [string, string][]).map(([l, v]) => (
+                              <div key={l} style={{ padding: "12px 14px", background: surf, display: "flex", flexDirection: "column", gap: 5 }}>
+                                <span style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.45rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: lc }}>{l}</span>
+                                <span style={{
+                                  fontSize: l === "Variant" ? "1.0rem" : "0.7rem",
+                                  fontWeight: 700, color: l === "Variant" ? C.blue : tc,
+                                  wordBreak: "break-all", lineHeight: 1.3,
+                                }}>{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+
+                      {/* ── Paper Status ── */}
+                      <section>
+                        <SectionHeader label="Paper Status" color={C.green} />
+                        <div style={{ display: "grid", gridTemplateColumns: (selected.kioskVariant || "SX") === "DX" ? "1fr 1fr" : "1fr", gap: 8 }}>
+
+                          {/* Printer 1 */}
+                          <div style={{ padding: "16px 18px", border: `1px solid ${bm}`, background: sub, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.45rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: lc }}>
+                              {(selected.kioskVariant || "SX") === "DX" ? "Printer 1 · Color" : "Printer 1"}
+                            </span>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                              <span style={{ fontSize: "2rem", fontWeight: 900, color: C.green, lineHeight: 1 }}>
+                                {selected.printer1Paper ?? 250}
+                              </span>
+                              <span style={{ fontSize: "0.65rem", color: lc }}>/ {selected.printer1Capacity ?? 250} sheets</span>
+                            </div>
+                            {/* mini progress bar */}
+                            <div style={{ height: 3, background: bm, position: "relative" }}>
+                              <div style={{
+                                position: "absolute", left: 0, top: 0, bottom: 0,
+                                width: `${Math.min(100, ((selected.printer1Paper ?? 250) / (selected.printer1Capacity ?? 250)) * 100)}%`,
+                                background: C.green, transition: "width 0.4s",
+                              }} />
+                            </div>
+                            <button
+                              onClick={() => handleResetPaper("printer1")}
+                              disabled={paperResetting === "printer1"}
+                              style={{
+                                alignSelf: "flex-start", marginTop: 4,
+                                padding: "5px 14px", border: `1px solid ${C.green}`,
+                                background: "transparent", color: C.green,
+                                cursor: paperResetting === "printer1" ? "not-allowed" : "pointer",
+                                fontFamily: "'Space Mono',monospace", fontSize: "0.48rem",
+                                fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em",
+                                opacity: paperResetting === "printer1" ? 0.4 : 1, transition: "opacity 0.15s",
+                              }}
+                            >
+                              {paperResetting === "printer1" ? "Resetting..." : "↺ Reset"}
+                            </button>
+                          </div>
+
+                          {/* Printer 2 — DX only */}
+                          {(selected.kioskVariant || "SX") === "DX" && (
+                            <div style={{ padding: "16px 18px", border: `1px solid ${bm}`, background: sub, display: "flex", flexDirection: "column", gap: 6 }}>
+                              <span style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.45rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: lc }}>
+                                Printer 2 · B&W
+                              </span>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                                <span style={{ fontSize: "2rem", fontWeight: 900, color: C.blue, lineHeight: 1 }}>
+                                  {selected.printer2Paper ?? 250}
+                                </span>
+                                <span style={{ fontSize: "0.65rem", color: lc }}>/ {selected.printer2Capacity ?? 250} sheets</span>
+                              </div>
+                              <div style={{ height: 3, background: bm, position: "relative" }}>
+                                <div style={{
+                                  position: "absolute", left: 0, top: 0, bottom: 0,
+                                  width: `${Math.min(100, ((selected.printer2Paper ?? 250) / (selected.printer2Capacity ?? 250)) * 100)}%`,
+                                  background: C.blue, transition: "width 0.4s",
+                                }} />
+                              </div>
+                              <button
+                                onClick={() => handleResetPaper("printer2")}
+                                disabled={paperResetting === "printer2"}
+                                style={{
+                                  alignSelf: "flex-start", marginTop: 4,
+                                  padding: "5px 14px", border: `1px solid ${C.blue}`,
+                                  background: "transparent", color: C.blue,
+                                  cursor: paperResetting === "printer2" ? "not-allowed" : "pointer",
+                                  fontFamily: "'Space Mono',monospace", fontSize: "0.48rem",
+                                  fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em",
+                                  opacity: paperResetting === "printer2" ? 0.4 : 1, transition: "opacity 0.15s",
+                                }}
+                              >
+                                {paperResetting === "printer2" ? "Resetting..." : "↺ Reset"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+
                     </div>
                   </div>
                 ) : (

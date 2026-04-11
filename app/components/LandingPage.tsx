@@ -108,6 +108,188 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
           transform-origin: right center;
           animation: stripPeel 0.45s cubic-bezier(0.76,0,0.24,1) both;
         }
+
+        /* ── MOBILE RESPONSIVE ── */
+
+        /* Steps grid: 3-col → 1-col */
+        .steps-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0;
+          border-left: 1px solid;
+        }
+
+        /* Bento card: 2-col → 1-col */
+        .bento-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          border: 1px solid;
+          min-height: 480px;
+          overflow: hidden;
+        }
+
+        /* Hero subtitle row */
+        .hero-subtitle-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 24px;
+          max-width: 900px;
+        }
+
+        /* CTA strip row */
+        .cta-strip-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 40px;
+        }
+
+        /* Footer top row */
+        .footer-top-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          flex-wrap: wrap;
+          gap: 32px;
+          margin-bottom: 40px;
+        }
+
+        /* Footer bottom row */
+        .footer-bottom-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        /* Header nav */
+        .header-nav {
+          display: flex;
+          align-items: center;
+          gap: 32px;
+        }
+
+        /* Map graphic panel */
+        .bento-map-panel {
+          position: relative;
+          overflow: hidden;
+          min-height: 300px;
+        }
+
+        @media (max-width: 768px) {
+
+          /* Header */
+          header {
+            padding: 16px 18px !important;
+          }
+          .header-nav {
+            gap: 16px;
+          }
+          .header-nav a {
+            font-size: 0.58rem !important;
+            letter-spacing: 0.14em !important;
+          }
+
+          /* Hero section */
+          .hero-section-inner {
+            padding: 0 18px 48px !important;
+            min-height: 100dvh;
+          }
+          .hero-subtitle-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 28px;
+          }
+          .hero-find-btn {
+            width: 100%;
+            justify-content: center !important;
+          }
+
+          /* Steps grid → single column */
+          .steps-grid {
+            grid-template-columns: 1fr !important;
+            border-left: none !important;
+          }
+          .step-card {
+            border-right: none !important;
+            padding: 36px 24px !important;
+          }
+          .step-arrow {
+            display: none !important;
+          }
+
+          /* How it works section */
+          .how-section {
+            padding: 64px 18px !important;
+          }
+
+          /* Bento / Locations section */
+          .locations-section {
+            padding: 64px 18px !important;
+          }
+          .bento-grid {
+            grid-template-columns: 1fr !important;
+            min-height: auto !important;
+          }
+          .bento-text-panel {
+            border-right: none !important;
+            padding: 36px 28px !important;
+          }
+          .bento-map-panel {
+            min-height: 280px !important;
+            border-top: 1px solid;
+          }
+
+          /* CTA strip */
+          .cta-strip-section {
+            padding: 56px 18px !important;
+          }
+          .cta-strip-row {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 28px !important;
+          }
+          .cta-strip-btn {
+            width: 100%;
+            justify-content: center !important;
+          }
+
+          /* Footer */
+          footer {
+            padding: 32px 18px !important;
+          }
+          .footer-top-row {
+            flex-direction: column;
+            gap: 24px !important;
+          }
+          .footer-wordmark {
+            font-size: clamp(2.5rem, 14vw, 4.5rem) !important;
+          }
+          .footer-bottom-row {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 16px !important;
+          }
+          .footer-links-row {
+            flex-wrap: wrap;
+            gap: 16px !important;
+          }
+
+          /* Sections general padding */
+          .section-label-row {
+            margin-bottom: 40px !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .header-nav a[data-label="How It Works"] {
+            display: none;
+          }
+        }
       `}</style>
 
       {/* ── Intro strips ── */}
@@ -161,9 +343,10 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
             INNVERA
           </div>
 
-          <nav style={{ display: "flex", alignItems: "center", gap: 32 }}>
+          <nav className="header-nav">
             {["Map", "How It Works"].map(label => (
               <a key={label} className="nav-link" href="#"
+                data-label={label}
                 style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#fff", textDecoration: "none", cursor: "pointer" }}
                 onClick={e => { e.preventDefault(); if (label === "Map") router.push("/map") }}>
                 {label}
@@ -184,7 +367,7 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
 
         {/* ── HERO ── */}
         <motion.section style={{ y: heroY, position: "relative", zIndex: 10 }}>
-          <div style={{
+          <div className="hero-section-inner" style={{
             minHeight: "100dvh", display: "flex", flexDirection: "column",
             justifyContent: "flex-end", padding: "0 28px 64px",
             borderBottom: `1px solid ${C.border}`,
@@ -235,14 +418,10 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
 
             {/* Subtitle row */}
             <motion.div
+              className="hero-subtitle-row"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                display: "flex", alignItems: "flex-end",
-                justifyContent: "space-between", flexWrap: "wrap", gap: 24,
-                maxWidth: 900,
-              }}>
+              transition={{ delay: 1.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
               <p style={{
                 fontSize: "clamp(0.9rem, 1.6vw, 1.2rem)",
                 fontWeight: 500, color: C.muted, lineHeight: 1.7,
@@ -253,6 +432,7 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
               </p>
 
               <button
+                className="hero-find-btn"
                 onClick={() => router.push("/map")}
                 style={{
                   fontFamily: "'Inter', sans-serif",
@@ -312,7 +492,7 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
         </div>
 
         {/* ── HOW IT WORKS ── */}
-        <section id="how-it-works" style={{
+        <section id="how-it-works" className="how-section" style={{
           padding: "96px 28px",
           borderBottom: `1px solid ${C.border}`,
           position: "relative", zIndex: 10,
@@ -320,7 +500,7 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
             {/* Section label */}
-            <div style={{
+            <div className="section-label-row" style={{
               display: "flex", alignItems: "center", gap: 16, marginBottom: 64
             }}>
               <span style={{
@@ -344,7 +524,9 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
             </h2>
 
             {/* Steps grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderLeft: `1px solid ${C.border}` }}>
+            <div className="steps-grid" style={{
+              borderColor: C.border,
+            }}>
               {[
                 {
                   num: "01",
@@ -378,10 +560,11 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
                   )
                 },
               ].map((step, i) => (
-                <div key={i} style={{
+                <div key={i} className="step-card" style={{
                   padding: "48px 40px",
                   borderRight: `1px solid ${C.border}`,
                   borderBottom: `1px solid ${C.border}`,
+                  borderLeft: `1px solid ${C.border}`,
                   position: "relative",
                   transition: "background 0.2s",
                 }}
@@ -405,7 +588,7 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
 
                   {/* Step connector arrow */}
                   {i < 2 && (
-                    <div style={{
+                    <div className="step-arrow" style={{
                       position: "absolute", right: -12, top: "50%",
                       transform: "translateY(-50%)",
                       width: 24, height: 24,
@@ -425,14 +608,14 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
         </section>
 
         {/* ── MAP CTA (Bento) ── */}
-        <section style={{
+        <section className="locations-section" style={{
           padding: "96px 28px",
           borderBottom: `1px solid ${C.border}`,
           position: "relative", zIndex: 10,
         }}>
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 64 }}>
+            <div className="section-label-row" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 64 }}>
               <span style={{
                 fontFamily: "'Space Mono', monospace", fontSize: "0.6rem",
                 fontWeight: 700, letterSpacing: "0.28em", textTransform: "uppercase",
@@ -442,15 +625,10 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
             </div>
 
             {/* Bento card */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "1fr 1fr",
-              border: `1px solid ${C.border}`,
-              minHeight: 480,
-              overflow: "hidden",
-            }}>
+            <div className="bento-grid" style={{ borderColor: C.border }}>
 
               {/* Left — Text */}
-              <div style={{
+              <div className="bento-text-panel" style={{
                 padding: "56px 52px", borderRight: `1px solid ${C.border}`,
                 display: "flex", flexDirection: "column", justifyContent: "space-between",
                 background: C.surface,
@@ -514,8 +692,8 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
               </div>
 
               {/* Right — Abstract map graphic */}
-              <div style={{
-                position: "relative", overflow: "hidden",
+              <div className="bento-map-panel" style={{
+                borderColor: C.border,
                 background: isDark ? "#0d1117" : "#f0f2f5",
               }}>
                 {/* Grid road lines */}
@@ -586,7 +764,7 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
         </section>
 
         {/* ── PrintIT CTA STRIP ── */}
-        <section style={{
+        <section className="cta-strip-section" style={{
           padding: "80px 28px",
           borderBottom: `1px solid ${C.border}`,
           position: "relative", zIndex: 10,
@@ -601,42 +779,45 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
             pointerEvents: "none",
           }} />
 
-          <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 40, position: "relative" }}>
-            <div>
-              <div style={{
-                fontFamily: "'Space Mono', monospace", fontSize: "0.6rem",
-                fontWeight: 700, letterSpacing: "0.28em", textTransform: "uppercase",
-                color: "rgba(0,0,0,0.5)", marginBottom: 16,
-              }}>
-                Start Printing Now
+          <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative" }}>
+            <div className="cta-strip-row">
+              <div>
+                <div style={{
+                  fontFamily: "'Space Mono', monospace", fontSize: "0.6rem",
+                  fontWeight: 700, letterSpacing: "0.28em", textTransform: "uppercase",
+                  color: "rgba(0,0,0,0.5)", marginBottom: 16,
+                }}>
+                  Start Printing Now
+                </div>
+                <h2 style={{
+                  fontFamily: "'Inter', sans-serif", fontWeight: 900,
+                  fontSize: "clamp(2rem, 5vw, 4rem)",
+                  lineHeight: 0.92, letterSpacing: "-0.04em",
+                  textTransform: "uppercase", color: "#000", margin: 0,
+                }}>
+                  Your Documents.<br />Your Kiosk.
+                </h2>
               </div>
-              <h2 style={{
-                fontFamily: "'Inter', sans-serif", fontWeight: 900,
-                fontSize: "clamp(2rem, 5vw, 4rem)",
-                lineHeight: 0.92, letterSpacing: "-0.04em",
-                textTransform: "uppercase", color: "#000", margin: 0,
-              }}>
-                Your Documents.<br />Your Kiosk.
-              </h2>
+              <button
+                className="cta-strip-btn"
+                onClick={() => router.push("/map")}
+                style={{
+                  fontFamily: "'Inter', sans-serif", fontWeight: 800,
+                  fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase",
+                  background: "#000", color: "#fff",
+                  border: "none", padding: "18px 40px",
+                  cursor: "pointer", transition: "all 0.2s",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                  flexShrink: 0,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#000" }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#000"; e.currentTarget.style.color = "#fff" }}>
+                Open PrintIT
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
-            <button
-              onClick={() => router.push("/map")}
-              style={{
-                fontFamily: "'Inter', sans-serif", fontWeight: 800,
-                fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase",
-                background: "#000", color: "#fff",
-                border: "none", padding: "18px 40px",
-                cursor: "pointer", transition: "all 0.2s",
-                display: "flex", alignItems: "center", gap: 10,
-                flexShrink: 0,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#000" }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#000"; e.currentTarget.style.color = "#fff" }}>
-              Open PrintIT
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </button>
           </div>
         </section>
 
@@ -647,13 +828,9 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
           position: "relative", zIndex: 10,
         }}>
           {/* Footer top row */}
-          <div style={{
-            display: "flex", justifyContent: "space-between",
-            alignItems: "flex-start", flexWrap: "wrap", gap: 32,
-            marginBottom: 40,
-          }}>
+          <div className="footer-top-row">
             <div>
-              <div style={{
+              <div className="footer-wordmark" style={{
                 fontFamily: "'Inter', sans-serif", fontWeight: 900,
                 fontSize: "clamp(3rem, 7vw, 7rem)",
                 letterSpacing: "-0.04em", textTransform: "uppercase",
@@ -679,14 +856,9 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
             </nav>
           </div>
 
-          <div style={{
-            height: 1, background: C.border, marginBottom: 28,
-          }} />
+          <div style={{ height: 1, background: C.border, marginBottom: 28 }} />
 
-          <div style={{
-            display: "flex", justifyContent: "space-between",
-            alignItems: "center", flexWrap: "wrap", gap: 12,
-          }}>
+          <div className="footer-bottom-row">
             <span style={{
               fontFamily: "'Space Mono', monospace",
               fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.12em",
@@ -694,7 +866,7 @@ export default function LandingPage({ isDark, onThemeToggle }: LandingPageProps)
             }}>
               PRINTIT BY INNVERA
             </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+            <div className="footer-links-row" style={{ display: "flex", alignItems: "center", gap: 24 }}>
               <a href="/sign-in?role=admin"
                 style={{
                   fontFamily: "'Space Mono', monospace",

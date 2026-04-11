@@ -22,6 +22,7 @@ import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google"
 import styles from "./UploadPage.module.css"
 
 const GOOGLE_CLIENT_ID = "71594743056-rd5v1od8fej9run4rnmn4r5gdq62sqgt.apps.googleusercontent.com"
+const KIOSK_BACKEND = "https://kiosk-backend-t1mi.onrender.com"
 
 interface QueueItem {
   id: number
@@ -83,6 +84,60 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
   const [adminUser, setAdminUser] = useState<{ name: string; picture: string; email: string } | null>(null)
   const [paperLevel, setPaperLevel] = useState(145)
   const paperMax = 250
+
+  // Dynamic pricing from kiosk backend
+  const [pricing, setPricing] = useState({ colorRate: 10, bwSingleRate: 2, bwDuplexRate: 3 })
+
+  // Real-time paper status from kiosk backend
+  const [kioskPaper, setKioskPaper] = useState<{ printer1Paper: number; printer2Paper: number; printer1Capacity: number; printer2Capacity: number; kioskVariant: string; printer1: string; printer2: string } | null>(null)
+  const [paperResetting, setPaperResetting] = useState<string | null>(null)
+
+  const fetchKioskPaper = async () => {
+    try {
+      const r = await fetch(`${KIOSK_BACKEND}/api/kiosk/${slug}`)
+      const d = await r.json()
+      if (d.success && d.kiosk) {
+        setKioskPaper({
+          printer1Paper: d.kiosk.printer1Paper ?? 250,
+          printer2Paper: d.kiosk.printer2Paper ?? 250,
+          printer1Capacity: d.kiosk.printer1Capacity ?? 250,
+          printer2Capacity: d.kiosk.printer2Capacity ?? 250,
+          kioskVariant: d.kiosk.kioskVariant || 'SX',
+          printer1: d.kiosk.printer1 || 'Printer 1',
+          printer2: d.kiosk.printer2 || 'Printer 2',
+        })
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!slug) return
+    fetchKioskPaper()
+    const interval = setInterval(fetchKioskPaper, 30_000)
+    return () => clearInterval(interval)
+  }, [slug])
+
+  const handleResetPaper = async (printer: 'all' | 'printer1' | 'printer2') => {
+    setPaperResetting(printer)
+    try {
+      const r = await fetch(`${KIOSK_BACKEND}/api/kiosk/${slug}/paper/reset`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printer })
+      })
+      const d = await r.json()
+      if (d.success) {
+        setKioskPaper(p => p ? { ...p, printer1Paper: d.printer1Paper, printer2Paper: d.printer2Paper } : p)
+      }
+    } catch {} finally { setPaperResetting(null) }
+  }
+
+  useEffect(() => {
+    if (!slug) return
+    fetch(`${KIOSK_BACKEND}/api/kiosk/${slug}/pricing`)
+      .then(r => r.json())
+      .then(d => { if (d.success && d.pricing) setPricing(d.pricing) })
+      .catch(() => {}) // silent fallback to defaults
+  }, [slug])
 
   // Filtered pages for preview (based on custom page range)
   const [filteredPageIndices, setFilteredPageIndices] = useState<number[]>([])
@@ -392,13 +447,12 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
     if (!selectedPdf || pdfPageCount === 0) return 0
     let totalPages = settings.pageRange === "all" ? pdfPageCount : calculateCustomPages()
     totalPages *= settings.copies
-    const costPerPage = settings.colorMode === "color" ? 10 : 2
     if (settings.doubleSided === "both-sides") {
-      if (settings.colorMode === "color") return totalPages * 10
+      if (settings.colorMode === "color") return totalPages * pricing.colorRate
       const sheets = Math.ceil(totalPages / 2)
-      return totalPages % 2 === 0 ? sheets * 3 : (sheets - 1) * 3 + 2
+      return totalPages % 2 === 0 ? sheets * pricing.bwDuplexRate : (sheets - 1) * pricing.bwDuplexRate + pricing.bwSingleRate
     }
-    return totalPages * costPerPage
+    return totalPages * (settings.colorMode === "color" ? pricing.colorRate : pricing.bwSingleRate)
   }
 
   /* ── queue actions ── */
@@ -564,6 +618,46 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
                 <span>PAPER SHOP</span>
               </button>
               <p className={styles.ctaHint}>Max 10 PDFs &amp; 20 images · Max 50 MB per file</p>
+
+              {/* ── Pricing Info Card ── */}
+              <div style={{
+                marginTop: 20,
+                border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+                background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                padding: '14px 18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} strokeWidth="2" strokeLinecap="square">
+                      <rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" />
+                    </svg>
+                    <span style={{ fontFamily: "'Space Mono',monospace", fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', textTransform: 'uppercase' }}>Print Rates</span>
+                  </div>
+                  <span style={{ fontFamily: "'Space Mono',monospace", fontSize: '0.55rem', letterSpacing: '0.08em', color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)', textTransform: 'uppercase' }}>{slug}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  {[
+                    { label: 'Color', sub: 'per page', value: pricing.colorRate, color: '#ff6b47' },
+                    { label: 'B&W', sub: 'single side', value: pricing.bwSingleRate, color: '#3b82f6' },
+                    { label: 'B&W', sub: 'double side', value: pricing.bwDuplexRate, color: '#22c55e' },
+                  ].map((r, i) => (
+                    <div key={i} style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      padding: '10px 6px',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}`,
+                      background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                      gap: 3,
+                    }}>
+                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: '1rem', fontWeight: 700, color: r.color, lineHeight: 1 }}>₹{r.value}</span>
+                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: '0.52rem', fontWeight: 700, color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.75)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{r.label}</span>
+                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: '0.48rem', color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{r.sub}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* ── Footer ── */}
@@ -587,18 +681,55 @@ export default function UploadPage({ slug, onUploadComplete, initialQueue, initi
                       </div>
                       <button className={styles.adminSignOutBtn} onClick={handleAdminSignOut}>Sign out</button>
                     </div>
-                    <div className={styles.paperWidget}>
-                      <div className={styles.paperWidgetHeader}>
-                        <span className={styles.paperWidgetLabel}>Paper Level</span>
-                        <span className={styles.paperWidgetValue}>{paperLevel} / {paperMax} sheets</span>
+                    {/* Real-time paper status */}
+                    {kioskPaper ? (
+                      <div style={{ marginBottom: 12 }}>
+                        {/* Printer 1 (Color / EPSON) */}
+                        <div style={{ marginBottom: 10 }}>
+                          <div className={styles.paperWidgetHeader}>
+                            <span className={styles.paperWidgetLabel} style={{ color: '#ff6b47' }}>🎨 {kioskPaper.printer1 || 'Printer 1 (Color)'}</span>
+                            <span className={styles.paperWidgetValue}>{kioskPaper.printer1Paper} / {kioskPaper.printer1Capacity} sheets</span>
+                          </div>
+                          <div className={styles.paperTrack}>
+                            <div className={styles.paperFill} style={{ width: `${(kioskPaper.printer1Paper / kioskPaper.printer1Capacity) * 100}%`, background: kioskPaper.printer1Paper < 50 ? '#ef4444' : kioskPaper.printer1Paper < 100 ? '#f59e0b' : '#22c55e' }} />
+                          </div>
+                          <div className={styles.paperSubtext} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{kioskPaper.printer1Paper < 50 ? 'Low — refill soon' : kioskPaper.printer1Paper < 100 ? 'Moderate' : 'Good'}</span>
+                            <button onClick={() => handleResetPaper('printer1')} disabled={paperResetting !== null} style={{ fontSize: '0.55rem', background: 'transparent', border: 'none', color: '#ff6b47', cursor: 'pointer', fontFamily: "'Space Mono',monospace", fontWeight: 700, letterSpacing: '0.08em' }}>
+                              {paperResetting === 'printer1' ? '...' : 'RESET'}
+                            </button>
+                          </div>
+                        </div>
+                        {/* Printer 2 (B&W / Brother) — DX only */}
+                        {kioskPaper.kioskVariant === 'DX' && (
+                          <div style={{ marginBottom: 10 }}>
+                            <div className={styles.paperWidgetHeader}>
+                              <span className={styles.paperWidgetLabel} style={{ color: '#3b82f6' }}>🖤 {kioskPaper.printer2 || 'Printer 2 (B&W)'}</span>
+                              <span className={styles.paperWidgetValue}>{kioskPaper.printer2Paper} / {kioskPaper.printer2Capacity} sheets</span>
+                            </div>
+                            <div className={styles.paperTrack}>
+                              <div className={styles.paperFill} style={{ width: `${(kioskPaper.printer2Paper / kioskPaper.printer2Capacity) * 100}%`, background: kioskPaper.printer2Paper < 50 ? '#ef4444' : kioskPaper.printer2Paper < 100 ? '#f59e0b' : '#3b82f6' }} />
+                            </div>
+                            <div className={styles.paperSubtext} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>{kioskPaper.printer2Paper < 50 ? 'Low — refill soon' : kioskPaper.printer2Paper < 100 ? 'Moderate' : 'Good'}</span>
+                              <button onClick={() => handleResetPaper('printer2')} disabled={paperResetting !== null} style={{ fontSize: '0.55rem', background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', fontFamily: "'Space Mono',monospace", fontWeight: 700, letterSpacing: '0.08em' }}>
+                                {paperResetting === 'printer2' ? '...' : 'RESET'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className={styles.paperTrack}>
-                        <div className={styles.paperFill} style={{ width: `${(paperLevel / paperMax) * 100}%`, background: paperLevel < 50 ? '#ef4444' : paperLevel < 100 ? '#f59e0b' : '#22c55e' }} />
+                    ) : (
+                      <div className={styles.paperWidget}>
+                        <div className={styles.paperWidgetHeader}>
+                          <span className={styles.paperWidgetLabel}>Paper Level</span>
+                          <span className={styles.paperWidgetValue}>Loading...</span>
+                        </div>
+                        <div className={styles.paperTrack}><div className={styles.paperFill} style={{ width: '0%' }} /></div>
                       </div>
-                      <div className={styles.paperSubtext}>{paperLevel < 50 ? 'Low — refill soon' : paperLevel < 100 ? 'Moderate' : 'Good'}</div>
-                    </div>
+                    )}
                     <div className={styles.adminActions}>
-                      <button className={styles.adminResetBtn} onClick={() => setPaperLevel(paperMax)}>
+                      <button className={styles.adminResetBtn} onClick={() => handleResetPaper('all')} disabled={paperResetting !== null}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-.44-4.04" /></svg>
                         Reset Paper
                       </button>

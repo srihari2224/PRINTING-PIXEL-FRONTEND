@@ -1,0 +1,29 @@
+# ── Build output ───────────────────────────────────────────────
+.next
+out
+
+# ── Dependencies ───────────────────────────────────────────────
+node_modules
+
+# ── Git / version control ──────────────────────────────────────
+.git
+.gitignore
+.vercel
+
+# ── Logs and temp files ────────────────────────────────────────
+*.log
+*.txt
+build_logs.txt
+build_output.txt
+error_tail.txt
+
+# ── Environment files (secrets passed via compose env_file) ───
+.env
+.env.local
+.env.production
+
+# ── Editor / OS noise ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode
+.idea

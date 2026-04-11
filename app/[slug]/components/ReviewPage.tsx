@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, FileText, Printer, Copy, ChevronDown, ChevronUp, Layers } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, FileText, Printer, Copy, ChevronDown, ChevronUp } from "lucide-react"
 import styles from "./ReviewPage.module.css"
+
+const KIOSK_BACKEND = process.env.NEXT_PUBLIC_KIOSK_API_URL || "https://kiosk-backend-t1mi.onrender.com"
 
 interface ReviewPageProps {
   uploadResult: any
@@ -11,6 +13,14 @@ interface ReviewPageProps {
   onProceedToPayment: (totalAmount: number) => void
   isDark?: boolean
 }
+
+interface KioskPricing {
+  colorRate: number
+  bwSingleRate: number
+  bwDuplexRate: number
+}
+
+const DEFAULT_PRICING: KioskPricing = { colorRate: 8, bwSingleRate: 2, bwDuplexRate: 3 }
 
 function expandPageRange(range: string, maxPages: number): number[] {
   if (!range || range.trim().toLowerCase() === 'all') {
@@ -34,17 +44,17 @@ function expandPageRange(range: string, maxPages: number): number[] {
   return Array.from(pages).sort((a, b) => a - b)
 }
 
-function calculatePrice(pages: number, colorMode: string, duplex: string, copies: number): number {
+function calculatePrice(pages: number, colorMode: string, duplex: string, copies: number, pricing: KioskPricing): number {
   let totalPerCopy = 0
   if (colorMode === 'color') {
-    totalPerCopy = pages * 10
+    totalPerCopy = pages * pricing.colorRate
   } else {
     if (duplex === 'single') {
-      totalPerCopy = pages * 2
+      totalPerCopy = pages * pricing.bwSingleRate
     } else {
       const fullSheets = Math.floor(pages / 2)
       const extraSheet = pages % 2
-      totalPerCopy = (fullSheets * 3) + (extraSheet * 2)
+      totalPerCopy = (fullSheets * pricing.bwDuplexRate) + (extraSheet * pricing.bwSingleRate)
     }
   }
   return totalPerCopy * copies
@@ -52,6 +62,19 @@ function calculatePrice(pages: number, colorMode: string, duplex: string, copies
 
 export default function ReviewPage({ uploadResult, kioskId, onBack, onProceedToPayment, isDark = true }: ReviewPageProps) {
   const [showBillDetails, setShowBillDetails] = useState(false)
+  const [pricing, setPricing] = useState<KioskPricing>(DEFAULT_PRICING)
+  const [pricingLoaded, setPricingLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!kioskId) { setPricingLoaded(true); return }
+    fetch(`${KIOSK_BACKEND}/api/kiosk/${kioskId}/pricing`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.success && d.pricing) setPricing(d.pricing) })
+      .catch(() => {}) // silently fall back to defaults
+      .finally(() => setPricingLoaded(true))
+  }, [kioskId])
+
+
 
   const calculateTotalAmount = () => {
     let total = 0
@@ -59,7 +82,7 @@ export default function ReviewPage({ uploadResult, kioskId, onBack, onProceedToP
     uploadResult.files.forEach((file: any) => {
       const pageRange = file.printOptions.pageRange || 'all'
       const actualPages = expandPageRange(pageRange, file.pageCount).length
-      const price = calculatePrice(actualPages, file.printOptions.colorMode, file.printOptions.duplex, file.printOptions.copies)
+      const price = calculatePrice(actualPages, file.printOptions.colorMode, file.printOptions.duplex, file.printOptions.copies, pricing)
       total += price
       totalPagesCount += actualPages * file.printOptions.copies
     })
@@ -98,7 +121,7 @@ export default function ReviewPage({ uploadResult, kioskId, onBack, onProceedToP
               const pageRange = file.printOptions.pageRange || 'all'
               const expandedPages = expandPageRange(pageRange, file.pageCount)
               const actualPages = expandedPages.length
-              const filePrice = calculatePrice(actualPages, file.printOptions.colorMode, file.printOptions.duplex, file.printOptions.copies)
+              const filePrice = calculatePrice(actualPages, file.printOptions.colorMode, file.printOptions.duplex, file.printOptions.copies, pricing)
 
               return (
                 <div key={index} className={styles.fileCard}>
